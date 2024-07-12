@@ -1,13 +1,15 @@
-import * as retaguarda from "../retaguarda/controllers/TipoDeDado.ts";
+import * as TipoDeDado from "../retaguarda/controllers/TipoDeDado.ts";
+import * as User from "../cliente/controllers/User.ts";
 
 export default {
     get: [],
     post: [
         { route: "/addTipoItem", function: "addTipoItem" },
-        { route: "/addTipoDado", function: retaguarda.addTipoDado }
+        { route: "/add-tipodedado", function: TipoDeDado.addTipoDado },
+        { route: "/add-user", function: User.addUser }
     ],
     delete: [
-        { route: "/delTipoDado/:id", function: retaguarda.delTipoDado },
+        { route: "/delTipoDado/:id", function: TipoDeDado.delTipoDado },
     ],
     put: []
 }

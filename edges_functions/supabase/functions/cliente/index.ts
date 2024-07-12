@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
 
     const params = routerInvoked.params;
     const func_name = routerInvoked.function;
-    const { data, error, msg, code } = await func_name(params, body);
+    const { data, error, msg, code } = await func_name(params, body, user);
 
     if (error && code == "42501") throw new Error("Você não possui permissão para executar essa ação!");
     if (error) throw new Error(msg);

@@ -1,3 +1,4 @@
+import { supaCli, supa } from "./supaClient.ts";
 import routes from "./routes.ts";
 
 export const corsHeaders = {
@@ -15,6 +16,28 @@ export function createResponse(body: any, status = 200, headers = {}) {
         },
         status: status,
     });
+}
+//Auth
+export const verifyUserIntegrity = async (headers) => {
+    const token = getAuth(headers);
+    supa(token);
+
+    if (!token) return false;
+
+    const { data, error } = await supaCli.auth.getUser(token);
+
+    if (error != null) return false;
+
+    return { user: data.user, token };
+}
+export const getAuth = (headers) => {
+    let jwt = Object.fromEntries(headers).authorization;
+    jwt = jwt.split(" ");
+
+    if (jwt[0] != "Bearer") return false;
+    jwt = jwt[1];
+
+    return jwt;
 }
 //Router
 export const router = (method, url) => {
@@ -51,17 +74,6 @@ export const router = (method, url) => {
 
     return false;
 }
-
-async function callFunction(obj: { function: string; params: any }) {
-    const func = functions[obj.function];
-
-    if (!func) {
-        throw new Error(`Função ${obj.function} não encontrada.`);
-    }
-
-    await func(obj.params);
-}
-
 //Helpers
 export const getCleanUrl = (url) => {
     const cleanUrl = url.split('/').slice(4);
