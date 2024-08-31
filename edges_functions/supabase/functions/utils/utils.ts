@@ -49,7 +49,7 @@ export const router = (method, url) => {
     for (const item of methodInvoked) {
         // Cria um padrão para a URL usando expressões regulares
         const pattern = item.route
-            .replace(/:[a-z0-9]+/gi, '([a-z0-9-]+)')  // Substitui parâmetros da URL por expressões regulares
+            .replace(/:[a-z0-9]+/gi, '([^/]+)')  // Substitui parâmetros da URL por expressões regulares
             .replace(/\//g, '\\/');  // Escapa as barras na URL
 
         const regex = new RegExp(`^${pattern}$`, 'i');  // Cria uma expressão regular para a URL
@@ -81,11 +81,26 @@ export const getCleanUrl = (url) => {
     return "/" + cleanUrl.join('/');
 }
 export const isNumber = (target) => {
-    const expression = /^\d$/;
+    const expression = /^\d+$/;
 
     return expression.test(target);
 }
 
 export const response = (data = null, error = false, msg = "Ops ocorreu um erro inesperado!", code = "") => {
     return { error, msg, code, data };
+}
+
+export const arraysAreEqual = (arr1, arr2) => {
+    if (arr1.length !== arr2.length) return false;
+
+    // Ordenar os arrays
+    let sortedArr1 = arr1.slice().sort((a, b) => a - b);
+    let sortedArr2 = arr2.slice().sort((a, b) => a - b);
+
+    // Comparar os arrays ordenados
+    for (let i = 0; i < sortedArr1.length; i++) {
+        if (sortedArr1[i] !== sortedArr2[i]) return false;
+    }
+
+    return true;
 }

@@ -2,11 +2,12 @@ import { supaCli } from "../../utils/supaClient.ts";
 import { response } from "../../utils/utils.ts";
 
 //services
-import { registerPerfil } from "./Perfil.ts";
-import { addDefaultPermission } from "./Permissao.ts";
+import { getDefaultPerfil, getPerfilById } from "./Perfil.ts";
+import { getUserPermissions } from "./Permissao.ts";
 import { registerColaborador, getColaboradorByUserId } from "./Colaborador.ts";
-import { registerEmpresa } from "./Empresa.ts";
-import { registerEquipe } from "./Equipe.ts";
+import { registerEmpresa, getEmpresaByColaboradorId } from "./Empresa.ts";
+import { registerEquipe, getEquipesByColaboradorId, associateEquipeToColaborador } from "./Equipe.ts";
+import { registerUsuario, getUsuarioById } from "./Usuario.ts";
 
 export const registerUser = async (user) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
@@ -14,22 +15,21 @@ export const registerUser = async (user) => {
 
     //Verify if user already exists
     const alreadyExists = await getColaboradorByUserId(id);
-    if(alreadyExists) return response(null, true, "Esse usuario já existe no sistema");
+
+    if (alreadyExists) {
+        const { data } = await fetchAllUserData(id);
+        return response(data);
+    }
 
     //Adding User from Token
-    const { data, error } = await supaCli.from("Usuario").insert([{ nome: user_metadata.name, email: user_metadata.email, empresas: [], googleid: user_metadata.provider_id }]).select("*");
+    const usuario = await registerUsuario(user_metadata.name, user_metadata.email, user_metadata.provider_id) as string;
+    if (!usuario) return response(null, true, "Erro ao cadastrar Usuario");
 
-    if (error != null) return response(null, true, "Erro ao cadastrar Usuario");
-
-    //Adding a new perfil to user based on his name
-    const perfilId = await registerPerfil(user_metadata.name) as string;
-    if (!perfilId) return response(null, true, "Erro ao cadastrar Usuario");
-
-    //Associating Default Permission to new account
-    const addPermission = await addDefaultPermission(perfilId);
+    //getting Default Perfil
+    const defaultPerfil = await getDefaultPerfil();
 
     //Adding new user as a Colaborador
-    const addColaborador = await registerColaborador(data[0].id, perfilId, id);
+    const addColaborador = await registerColaborador(usuario.id, defaultPerfil.id, id);
     if (!addColaborador) return response(null, true, "Erro ao cadastrar Usuario");
 
     //Adding a first  generic company to new user
@@ -42,10 +42,38 @@ export const registerUser = async (user) => {
     const addEquipe = await registerEquipe(equipeDefaultName, addColaborador.id, addEmpresa.id);
     if (!addEquipe) return response(null, true, "Erro ao cadastrar Usuario");
 
+    //Associating Team with colaborador
+    const colaboradorEquipe = await associateEquipeToColaborador(addColaborador.id, addEquipe[0].id);
+    if (!colaboradorEquipe) return response(null, true, "Erro ao cadastrar Usuario");
+
     return response({
         colaborador: addColaborador,
         empresa: addEmpresa,
-        usuario: data[0],
-        equipes: addEquipe
+        usuario: usuario,
+        equipes: addEquipe,
+        perfil: defaultPerfil,
     });
+}
+
+export const fetchAllUserData = async (id) => {
+
+    try {
+        const colaborador = await getColaboradorByUserId(id);
+        const empresa = await getEmpresaByColaboradorId(colaborador.id);
+        const usuario = await getUsuarioById(colaborador.usuario);
+        const equipes = await getEquipesByColaboradorId(colaborador.id);
+        const permissoes = await getUserPermissions(colaborador.perfil);
+        const perfil = await getPerfilById(colaborador.perfil);
+
+        return response({
+            colaborador,
+            empresa,
+            usuario,
+            equipes,
+            permissoes,
+            perfil,
+        });
+    } catch (e) {
+        return false;
+    }
 }

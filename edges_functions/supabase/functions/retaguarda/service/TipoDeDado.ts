@@ -10,3 +10,11 @@ export const addTipoDado = async (name, html) => {
 
     return response(data[0]);
 }
+
+export const deleteDadoById = async (id) => {
+    const { data, error } = await supaCli.from("TipoDeDado").delete().eq("id", id);
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return response({});
+}
