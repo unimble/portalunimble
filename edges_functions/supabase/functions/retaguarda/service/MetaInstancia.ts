@@ -47,6 +47,10 @@ export const getMetaInstanciaByIdsExpand = async (ids) => {
             )
         ),
         metaEstrutura (
+            id,
+            itemBase,
+            itemDependente,
+            dadoDependente,
             ordem
         )
     `).in("id", ids);

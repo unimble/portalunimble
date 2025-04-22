@@ -5,34 +5,59 @@ import * as dadoService from "./Dado.ts";
 import * as TipoItemService from "./TipoDeItem.ts";
 import * as ItemService from "./Item.ts";
 import * as metaInstanciaService from "./MetaInstancia.ts";
+import * as metaEstruturaService from "./MetaEstrutura.ts";
 
 //cliente
 import { getColaboradorByUserId } from "../../cliente/service/Colaborador.ts";
+import { getAllAssociated, getAllEquipes } from "../../cliente/service/Equipe.ts";
 
 var entrou = [];
 
-export const getMetaDados = async (metadados, fromLoggedUser = false) => {
+export const getMetaDados = async (metadados, source = false, kind = "col") => {
     const item = await TipoItemService.getItemFullStructureByName(metadados);
     if (!item) return response(null, true, `Tipo de item Inexiste`);
 
     let itens;
     //Get Overall Itens or from the logged user only
-    if (fromLoggedUser) {
-        itens = await ItemService.getItensByItemBaseByColaborador(item.tipoItem.id, fromLoggedUser);
-        if (itens.error) return response(null, true, itens.msg, itens.code);
-    } else {
+
+    if (!source) {
         itens = await ItemService.getItensByItemBase(item.tipoItem.id);
+        if (itens.error) return response(null, true, itens.msg, itens.code);
+    } else if (source && kind == "col") {
+        itens = await ItemService.getItensByItemBaseByColaborador(item.tipoItem.id, source);
+        if (itens.error) return response(null, true, itens.msg, itens.code);
+    } else if (source && kind == "company") {
+        itens = await ItemService.getItensByItemBaseByEmpresa(item.tipoItem.id, source);
+        if (itens.error) return response(null, true, itens.msg, itens.code);
+    } else if (source && kind == "team") {
+        const equipesMe = await getAllEquipes(source);
+        if (!equipesMe) return response(null, true, "Erro inesperado");
+
+        const ids = equipesMe.map(eq => eq.equipe);
+
+        const associatedCol = await getAllAssociated(ids);
+        if (!associatedCol) return response(null, true, "Erro inesperado");
+
+        const idsItens = associatedCol.map(r => r.colaborador);
+
+        itens = await ItemService.getItensByItemBaseByAllColaborador(item.tipoItem.id, idsItens);
         if (itens.error) return response(null, true, itens.msg, itens.code);
     }
 
-    let metaObj = [];
+    let metaObj: any = [];
 
     for (const itemSingle of itens) {
-        const dataFormatted = await recursiveItemData(itemSingle, fromLoggedUser);
+        const dataFormatted = await recursiveItemData(itemSingle, source);
         metaObj.push({
             id: itemSingle.id,
             nome: item.tipoItem.nome,
             tipoId: item.tipoItem.id,
+            createdBy: {
+                name: itemSingle.criador.usuario.nome,
+                profile: itemSingle.criador.usuario.profile,
+                origin: itemSingle.created_at
+            },
+            equipe: itemSingle.equipe,
             components: dataFormatted
         });
     }
@@ -40,13 +65,107 @@ export const getMetaDados = async (metadados, fromLoggedUser = false) => {
     return (metaObj.length == 1) ? metaObj[0] : metaObj;
 }
 
-export const registerMetadado = async (name, conteudo, userId) => {
+export const getMetaDadosById = async (metadados, id) => {
+    const item = await TipoItemService.getItemFullStructureByName(metadados);
+    if (!item) return response(null, true, `Tipo de item Inexiste`);
+
+    const [itemSingle] = await ItemService.getItensByItemId(id);
+    if (itemSingle.error) return response(null, true, itemSingle.msg, itemSingle.code);
+
+    let metaObj: any = {};
+
+    const dataFormatted = await recursiveItemData(itemSingle, false);
+    metaObj = {
+        id: itemSingle.id,
+        nome: item.tipoItem.nome,
+        tipoId: item.tipoItem.id,
+        createdBy: {
+            name: itemSingle.criador.usuario.nome,
+            profile: itemSingle.criador.usuario.profile,
+            origin: itemSingle.created_at
+        },
+        equipe: itemSingle.equipe,
+        components: dataFormatted
+    };
+
+    return metaObj;
+}
+
+export const getMetaDadosForm = async (metadados) => {
+    const item = await TipoItemService.getItemFullStructureByName(metadados);
+    if (!item) return response(null, true, `Tipo de item inexistente`);
+
+    const estrutura = await metaEstruturaService.getByItemIdExpand(item.tipoItem.id);
+    if (!estrutura) return response(null, true, `Estrutura inexistente`);
+
+    let final = [];
+
+    for (const est of estrutura) {
+        if (est.itemDependente) {
+            // // Chama a função recursiva caso haja itemDependente
+            const recursive = await recursiveItemForm(est.itemDependente.id);
+            final.push({
+                ...est, // Adiciona os dados do item atual
+                dadoDependente: recursive // Adiciona a estrutura dependente
+            });
+        } else {
+            final.push(est);
+        }
+    }
+
+    final.sort((a, b) => a.ordem - b.ordem);
+
+    return final;
+};
+
+export const getMetaDadosFormEdit = async (id) => {
+    const item = await ItemService.getItensByItemId(id);
+    if (!item) return response(null, true, `Tipo de item inexistente`);
+
+    const estrutura = await metaInstanciaService.getMetaInstanciaByIdsExpand(item[0].elem);
+    if (!estrutura) return response(null, true, `Estrutura inexistente`);
+
+    let final = [];
+
+    for (const est of estrutura) {
+        final.push({
+            html: est.dado.TipoDeDado.campohtml,
+            conteudo: est.dado.Conteudo,
+            ordem: est.metaEstrutura.ordem,
+            idMetaEstrutura: est.metaEstrutura.id,
+            idTipoDado: est.dado.TipoDeDado.id,
+            nomeDado: est.dado.TipoDeDado.nomedodado
+        });
+
+    }
+
+    final.sort((a, b) => a.ordem - b.ordem);
+
+    return final;
+};
+
+
+export const registerMetadado = async (name, conteudo = null, userId, equipeId = null) => {
     const Colaborador = await getColaboradorByUserId(userId);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
-    if (!conteudo) return response(null, true, `Informe o conteudo de "${name}"`);
+    const itemExist = await TipoItemService.getItemFullStructureByName(name);
+    if (!itemExist) return response(null, true, `Tipo de item "${name}" não existe`);
 
-    const conteudoArray = JSON.parse(conteudo);
+    if (!conteudo) {
+        let obj = { criador: Colaborador.id, item: itemExist.tipoItem.id };
+
+        if (equipeId) {
+            obj = { ...obj, equipe: equipeId };
+        }
+        const registerItem = await ItemService.addItem(obj);
+        if (registerItem.error) return response(null, true, registerItem.msg, registerItem.code);
+
+        return response(registerItem.data);
+    }
+
+    const conteudoArray = (!Array.isArray(conteudo)) ? JSON.parse(conteudo) : conteudo;
+
     if (!Array.isArray(conteudoArray)) return response(null, true, "Informe o conteudo em um formato valido");
 
     let dadoAdd = [];
@@ -54,14 +173,11 @@ export const registerMetadado = async (name, conteudo, userId) => {
         dadoAdd.push({ TipoDeDado: item.id, Conteudo: item.text })
     });
 
-    const itemExist = await TipoItemService.getItemFullStructureByName(name);
-    if (!itemExist) return response(null, true, `Tipo de item "${name}" não existe`);
-
     const registerDado = await dadoService.addDado(dadoAdd);
     if (registerDado.error) return response(null, true, registerDado.msg, registerDado.code);
 
     let instanciaAdd = [];
-    registerDado.data.forEach((dadoSingle) => {
+    registerDado.data?.forEach((dadoSingle) => {
         const instanciaBody = itemExist.estrutura.filter(item => item.dadoDependente == dadoSingle.TipoDeDado)[0];
         instanciaAdd.push({ dado: dadoSingle.id, metaEstrutura: instanciaBody.id });
     })
@@ -70,7 +186,14 @@ export const registerMetadado = async (name, conteudo, userId) => {
     if (registerMetaInstancia.error) return response(null, true, registerMetaInstancia.msg, registerMetaInstancia.code);
 
     let itemInstanciaIds = registerMetaInstancia.map(item => item.id);
-    const registerItem = await ItemService.addItem({ criador: Colaborador.id, elem: itemInstanciaIds, item: itemExist.tipoItem.id });
+
+    let obj = { criador: Colaborador.id, elem: itemInstanciaIds, item: itemExist.tipoItem.id };
+
+    if (equipeId) {
+        obj = { ...obj, equipe: equipeId };
+    }
+
+    const registerItem = await ItemService.addItem(obj);
     if (registerItem.error) return response(null, true, registerItem.msg, registerItem.code);
 
     return response(registerItem.data);
@@ -82,13 +205,13 @@ export const registerMetadadoItem = async (name, conteudo, userId) => {
 
     if (!conteudo) return response(null, true, `Informe o conteudo de "${name}"`);
 
-    const conteudoArray = JSON.parse(conteudo);
+    const conteudoArray = (!Array.isArray(conteudo)) ? JSON.parse(conteudo) : conteudo;
     if (!Array.isArray(conteudoArray)) return response(null, true, "Informe o conteudo em um formato valido");
 
     const itemExist = await TipoItemService.getItemFullStructureByName(name);
     if (!itemExist) return response(null, true, `Tipo de item "${name}" não existe`);
 
-    const registerItem = await ItemService.addItem({ criador: Colaborador.id, depende_de: conteudoArray, item: itemExist.tipoItem.id });
+    const registerItem = await ItemService.addItem({ criador: Colaborador.id, depende_de: conteudoArray, item: itemExist.tipoItem.id, empresa: Colaborador.empresa });
     if (registerItem.error) return response(null, true, registerItem.msg, registerItem.code);
 
     return response(registerItem.data);
@@ -113,8 +236,8 @@ export const deleteMetadado = async (id, colId) => {
 
                 if (depende_deArray.includes(parseInt(id))) {
                     depende_deArray = depende_deArray.filter(d => d != id);
-                    
-                    const updateMetadado = await ItemService.updateItemById({depende_de:depende_deArray}, item.id);
+
+                    const updateMetadado = await ItemService.updateItemById({ depende_de: depende_deArray }, item.id);
                     if (updateMetadado.error) return response(null, true, updateMetadado.msg, updateMetadado.code);
                 }
             }
@@ -156,14 +279,51 @@ export const updateMetadadoItem = async (name, conteudo, userId, itemId, overlap
     const update = await ItemService.updateItemById({ depende_de: conteudo }, itemId);
     if (update.error) return response(null, true, update.msg, update.code);
 
-    return response(updateItem[0]);
+    return response(update);
+}
+
+export const updateIntancia = async (name, conteudo, id) => {
+    const conteudoArray = (!Array.isArray(conteudo)) ? JSON.parse(conteudo) : conteudo;
+
+    if (!Array.isArray(conteudoArray)) return response(null, true, "Informe o conteudo em um formato valido");
+
+    let dadoAdd = [];
+    conteudoArray.forEach((item) => {
+        if (item.text.length > 0) dadoAdd.push({ TipoDeDado: item.id, Conteudo: item.text });
+    });
+
+    const itemExist = await TipoItemService.getItemFullStructureByName(name);
+    if (!itemExist) return response(null, true, `Tipo de item "${name}" não existe`);
+
+    const registerDado = await dadoService.addDado(dadoAdd);
+    if (registerDado.error) return response(null, true, registerDado.msg, registerDado.code);
+
+    let instanciaAdd = [];
+    registerDado.data.forEach((dadoSingle) => {
+        const instanciaBody = itemExist.estrutura.filter(item => item.dadoDependente == dadoSingle.TipoDeDado)[0];
+        instanciaAdd.push({ dado: dadoSingle.id, metaEstrutura: instanciaBody.id });
+    })
+
+    const registerMetaInstancia = await metaInstanciaService.addMetaInstancia(instanciaAdd);
+    if (registerMetaInstancia.error) return response(null, true, registerMetaInstancia.msg, registerMetaInstancia.code);
+
+    const [itemSingle] = await ItemService.getItensByItemId(id);
+    if (itemSingle.error) return response(null, true, itemSingle.msg, itemSingle.code);
+
+    let itemInstanciaIds = registerMetaInstancia.map(item => item.id);
+    const newElem = (Array.isArray(itemSingle.elem)) ? itemSingle.elem.concat(itemInstanciaIds) : itemInstanciaIds;
+
+    const itemEdit = await ItemService.updateItemById({ elem: newElem }, id);
+    if (itemEdit.error) return response(null, true, itemEdit.msg, itemEdit.code);
+
+    return true;
 }
 
 export const editMetaDado = async (id, conteudo) => {
     const itemInstancias = await ItemService.getItensByItemId(id);
     const metaInstancias = await metaInstanciaService.getMetaInstanciaByIdsExpand(itemInstancias[0].elem);
 
-    const editData = JSON.parse(conteudo);
+    const editData = (!Array.isArray(conteudo)) ? JSON.parse(conteudo) : conteudo;
 
     let bodyStr = [];
 
@@ -176,80 +336,14 @@ export const editMetaDado = async (id, conteudo) => {
         });
     });
 
-    const editDados = await dadoService.editDadoList(bodyStr);
+    if (bodyStr.length > 0) {
+        const editDados = await dadoService.editDadoList(bodyStr);
 
-    return editDados;
-}
-
-export const formatForca = (metadado, type = "Força") => {
-    let aux = [];
-
-    metadado.forEach(chunks => {
-        let temp = {};
-        chunks.forEach((item, i) => {
-            if (i == 0) {
-                temp = { ...temp, itemId: item.itemId }
-            }
-
-            if (item.dado === "Nome") {
-                temp = { ...temp, itemId: item.itemId, nome: { id: item.dadoId, content: item.content }, type }
-            }
-
-            if (item.dado === "Descrição") {
-                temp = { ...temp, descricao: { id: item.dadoId, content: item.content } }
-            }
-        })
-        aux.push(temp);
-    });
-
-    return aux;
-}
-
-globalThis.ObjetivosFormat = (metadado) => {
-    return formatForca(metadado, "Objetivos");
-}
-
-globalThis.CicloFormat = (metadado) => {
-    let aux = [];
-
-    metadado.forEach(chunks => {
-        let temp = {};
-        chunks.forEach((item, i) => {
-            if (item.dado === "Nome") {
-                temp = { ...temp, itemId: item.itemId, label: item.content, type: "Ciclo" }
-            }
-
-            if (item.dado === "Data de início") {
-                temp = { ...temp, from: item.content }
-            }
-
-            if (item.dado === "Data final") {
-                temp = { ...temp, to: item.content }
-            }
-        })
-        aux.push(temp);
-    });
-
-    return aux;
-}
-
-export const formatResultado = async (metadado) => {
-    let aux = [];
-    let finaObj = {
-        meta: "Resultados",
-        item: metadado[0]
+        return editDados;
     }
 
-    // let i = 0;
-    // for (const item of metadado) {
-    //     const el = await formatVerify(item[i]);
-    //     aux.push(el);
-    //     i++;
-    // }
-
-    return finaObj;
+    return response({});
 }
-
 export const formatVerify = async (metadado) => {
     if (metadado.length == 0) return false;
 
@@ -269,10 +363,10 @@ export const formatVerify = async (metadado) => {
     return globalThis[func](metadado);
 }
 
-const recursiveItemData = async (item, fromLoggedUser = false) => {
+const recursiveItemData = async (item) => {
     const instancia = await metaInstanciaService.getMetaInstanciaByIdsExpand(item.elem);
 
-    let itensList = [];
+    let itensList: any = [];
     instancia.forEach((itemInstancia) => {
         itensList.push({
             dadoId: itemInstancia.dado.TipoDeDado.id,
@@ -288,18 +382,48 @@ const recursiveItemData = async (item, fromLoggedUser = false) => {
     if (depende_de != undefined) {
         for (const itemDependente of depende_de) {
             const itemData = await ItemService.getItensByItemId(itemDependente);
-            const recursiveCall = await recursiveItemData(itemData[0], fromLoggedUser);
+            const recursiveCall = await recursiveItemData(itemData[0]);
 
             itensList.push(recursiveCall);
         }
     }
 
-    itensList.sort((a, b) => a.ordem - b.ordem);
+    // itensList.sort((a, b) => a.ordem - b.ordem);
 
     const itemInfo = await TipoItemService.getItemById(item.item);
     return {
         id: item.id,
         nome: itemInfo.nome,
-        dados: itensList
+        dados: itensList,
+        createdBy: {
+            name: item.criador.usuario.nome,
+            profile: item.criador.usuario.profile,
+            origin: item.created_at
+        }
     }
 }
+
+const recursiveItemForm = async (itemId) => {
+    const estrutura = await metaEstruturaService.getByItemIdExpand(itemId);
+    if (!estrutura) return response(null, true, `Estrutura inexistente para o item ${itemId}`);
+
+    // Ordena a estrutura pela ordem definida
+    estrutura.sort((a, b) => a.ordem - b.ordem);
+    let result = [];
+
+    for (const est of estrutura) {
+        if (est.itemDependente) {
+            // Chama a recursão novamente se houver um itemDependente
+            const recursive = await recursiveItemForm(est.itemDependente.id);
+            result.push({
+                ...est, // Adiciona os dados do item atual
+                dadoDependente: recursive // Adiciona os dados dependentes recursivamente
+            });
+        } else {
+            result.push(est); // Adiciona diretamente se não houver dependente
+        }
+    }
+
+    return result;
+};
+

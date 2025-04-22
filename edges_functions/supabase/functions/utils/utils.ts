@@ -86,7 +86,7 @@ export const isNumber = (target) => {
     return expression.test(target);
 }
 
-export const response = (data = null, error = false, msg = "Ops ocorreu um erro inesperado!", code = "") => {
+export const response = (data:any = null, error = false, msg = "Ops ocorreu um erro inesperado!", code = "") => {
     return { error, msg, code, data };
 }
 

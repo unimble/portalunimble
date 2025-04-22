@@ -38,3 +38,14 @@ export const editTipoItem = async (params, body) => {
 
     return response(data);
 }
+
+export const editTipoItemStructure = async (params, body) => {
+    const { id } = params;
+    const { meta } = body;
+
+    const { data, error, msg, code } = await service.editStructure(meta, id);
+
+    if (error) return response(null, true, msg, code);
+
+    return response(data);
+}

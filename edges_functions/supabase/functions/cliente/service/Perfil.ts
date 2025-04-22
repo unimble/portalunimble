@@ -12,6 +12,14 @@ export const getDefaultPerfil = async () => {
     return data[0];
 }
 
+export const getInvitePerfil = async () => {
+    const { data, error } = await supaCli.from("Perfil").select("*").eq("nome", "Colaborador");
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data[0];
+}
+
 export const getPerfilById = async (perfilId: string) => {
     const { data, error } = await supaCli.from("Perfil").select("*").eq("id", perfilId);
 

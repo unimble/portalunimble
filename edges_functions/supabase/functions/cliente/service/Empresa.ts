@@ -24,3 +24,11 @@ export const getEmpresaByColaboradorId = async (col_id: string) => {
 
     return data;
 }
+
+export const getEmpresaById = async (id: string) => {
+    const { data, error } = await supaCli.from("Empresa").select("*").eq("id", id);
+
+    if (error != null) return false;
+
+    return data;
+}

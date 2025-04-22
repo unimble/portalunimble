@@ -24,3 +24,11 @@ export const getUsuarioById = async (id: string) => {
 
     return data[0];
 }
+
+export const getUsuarioByEmail = async (email: string) => {
+    const { data, error } = await supaCli.from("Usuario").select("*").eq("email", email);
+
+    if (error != null) return false;
+
+    return data[0];
+}

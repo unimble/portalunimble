@@ -16,7 +16,10 @@ export const getByItemIdExpand = async (id) => {
 
     const { data, error } = await supaCli.from("MetaEstrutura").select(`
         id,    
-        itemDependente,
+        itemDependente (
+            id,
+            nome
+        ),
         dadoDependente (
             id,
             nomedodado,

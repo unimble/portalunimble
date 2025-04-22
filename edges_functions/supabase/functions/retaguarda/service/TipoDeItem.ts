@@ -31,6 +31,18 @@ export const addTipoItem = async (name, meta) => {
     return response(objReturn);
 }
 
+export const editStructure = async (meta, idItem) => {
+    let metaList = Array.isArray(meta) ? meta : JSON.parse(meta);
+    const orderCheck = metaList.map(item => item.order);
+    const uniqueOrders = new Set(orderCheck);
+
+    if (uniqueOrders.size !== orderCheck.length) return response(null, true, "Meta dados não podem ter ordens iguais!");
+
+    const metaData = await addItemModel(metaList, idItem);
+
+    return response(metaData);
+}
+
 export const addItemModel = async (meta, idItem) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 

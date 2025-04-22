@@ -34,7 +34,24 @@ export const deleteItemById = async (id) => {
 export const getItensByItemBase = async (id) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 
-    const { data, error } = await supaCli.from("Item").select("*").eq("item", id);
+    const { data, error } = await supaCli.from("Item").select(`
+        id,
+        created_at,
+        criador (
+            usuario (
+                nome,
+                profile
+            )
+        ),
+        equipe (
+            id,
+            nome
+        ),
+        empresa,
+        depende_de,
+        elem,
+        item 
+    `).eq("item", id);
 
     if (error != null) return response(null, true, error.message, error.code);
 
@@ -44,7 +61,24 @@ export const getItensByItemBase = async (id) => {
 export const getItensByItemId = async (id) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 
-    const { data, error } = await supaCli.from("Item").select("*").eq("id", id);
+    const { data, error } = await supaCli.from("Item").select(`
+        id,
+        created_at,
+        criador (
+            usuario (
+                nome,
+                profile
+            )
+        ),
+        equipe (
+            id,
+            nome
+        ),
+        empresa,
+        depende_de,
+        elem,
+        item 
+    `).eq("id", id);
 
     if (error != null) return response(null, true, error.message, error.code);
 
@@ -54,7 +88,78 @@ export const getItensByItemId = async (id) => {
 export const getItensByItemBaseByColaborador = async (id, colId) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 
-    const { data, error } = await supaCli.from("Item").select("*").eq("item", id).eq("criador", colId);
+    const { data, error } = await supaCli.from("Item").select(`
+        id,
+        created_at,
+        criador (
+            usuario (
+                nome,
+                profile
+            )
+        ),
+        equipe (
+            id,
+            nome
+        ),
+        empresa,
+        depende_de,
+        elem,
+        item 
+    `).eq("item", id).eq("criador", colId);
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data;
+}
+
+export const getItensByItemBaseByAllColaborador = async (id, colId) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli.from("Item").select(`
+        id,
+        created_at,
+        criador (
+            usuario (
+                nome,
+                profile
+            )
+        ),
+        equipe (
+            id,
+            nome
+        ),
+        empresa,
+        depende_de,
+        elem,
+        item 
+    `).eq("item", id).in("criador", colId);
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data;
+}
+
+export const getItensByItemBaseByEmpresa = async (id, companyId) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli.from("Item").select(`
+        id,
+        created_at,
+        criador (
+            usuario (
+                nome,
+                profile
+            )
+        ),
+        equipe (
+            id,
+            nome
+        ),
+        empresa,
+        depende_de,
+        elem,
+        item
+    `).eq("item", id).eq("empresa", companyId);
 
     if (error != null) return response(null, true, error.message, error.code);
 

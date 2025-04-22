@@ -11,6 +11,16 @@ export const addTipoDado = async (name, html) => {
     return response(data[0]);
 }
 
+export const getTipoDeDadoByName = async (name) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+    
+    const { data, error } = await supaCli.from("TipoDeDado").select("*").eq("nomedodado", name);
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return response(data[0]);
+}
+
 export const deleteDadoById = async (id) => {
     const { data, error } = await supaCli.from("TipoDeDado").delete().eq("id", id);
 
