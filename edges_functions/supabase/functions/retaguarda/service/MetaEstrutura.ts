@@ -32,3 +32,13 @@ export const getByItemIdExpand = async (id) => {
 
     return data;
 }
+
+export const editMetaEstrutura = async (id, dados) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli.from("MetaEstrutura").update(dados).eq("id", id).select("*");
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data[0];
+}

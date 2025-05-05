@@ -58,6 +58,50 @@ export const getItensByItemBase = async (id) => {
     return data;
 }
 
+export const testee = async (id, base) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli.from('vw_item_data')
+        .select(`
+      item_id,
+      created_at,
+      criador (
+        usuario (
+          nome,
+          profile
+        )
+      ),
+      equipe (
+        id,
+        nome
+      ),
+      empresa,
+      depende_de,
+      elem_meta_instancia_ids,
+      item_base,
+      data
+    `)
+        .match({
+            item_base: base,
+        })
+        .filter('data->>Nome', 'eq', id)
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data;
+}
+
+export const getProjectSum = async (id) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli
+        .rpc('getProjectConclusion', { id });
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data;
+}
+
 export const getItensByItemId = async (id) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 

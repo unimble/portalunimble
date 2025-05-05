@@ -11,6 +11,10 @@ export default {
         { route: "/get-perfil", function: Perfil.getAllPerfil },
         //planejamento
         { route: "/planejamento", function: Planejamento.getPlanejamento },
+        { route: "/planejamento/metadado/:item/:kind", function: Planejamento.getMetaDadoAll },
+        { route: "/planejamento/metadado/:item", function: Planejamento.getMetaDadoAll },
+        { route: "/planejamento/metadado/:item/:kind/:id", function: Planejamento.getMetaDadoSingle },
+        { route: "/planejamento/metadado/:item/:id", function: Planejamento.getMetaDadoSingle },
         { route: "/planejamento/me/:item", function: Planejamento.getPlanejamentoByItem },
         { route: "/planejamento/team/:item", function: Planejamento.getPlanejamentoItemByTeam },
         { route: "/planejamento/company/:item", function: Planejamento.getPlanejamentoByItemCompany },
@@ -19,6 +23,8 @@ export default {
         { route: "/planejamento/formEdit/:id", function: Planejamento.getFormEdit },
         { route: "/planejamento/ciclo", function: Planejamento.getCiclo },
         { route: "/planejamento/ciclo/:select", function: Planejamento.getCiclo },
+        { route: "/planejamento/tarefas/projeto/:id", function: Planejamento.getProjectTasks },
+        { route: "/planejamento/projeto/conclusao/:id", function: Planejamento.getProjectconclusion  },
         //Pagina principal
         { route: "/unimble/me", function: Principal.getHomeData },
         { route: "/unimble/equipe", function: Principal.getEquipe },
@@ -67,10 +73,12 @@ export default {
         { route: "/planejamento/conquistas/:item", function: Planejamento.editItem },
         { route: "/planejamento/objetivos/:item", function: Planejamento.editItem },
         { route: "/planejamento/metas/:item", function: Planejamento.editItem },
-        { route: "/planejamento/ciclos/:item", function: Planejamento.editItem },
+        { route: "/planejamento/ciclos/:item", function: Planejamento.editCycle },
         { route: "/planejamento/metasedit/:item", function: Planejamento.editTarefaConcluido },
         { route: "/planejamento/tarefa/:item", function: Planejamento.editInstanciaItem },
         { route: "/planejamento/processos/:item", function: Planejamento.editProcess },
+        { route: "/planejamento/projeto/:projId/tarefa/:taskId", function: Planejamento.editProjectIncludeTask },
+        { route: "/planejamento/projeto/:item", function: Planejamento.editItem },
         { route: "/planejamento/done", function: Planejamento.finish },
     ]
 }

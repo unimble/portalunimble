@@ -88,6 +88,15 @@ export const addObjetivos = async (params, body, user) => {
     return response(registerMetadado.data);
 }
 
+export const editProjectIncludeTask = async (params, body, user) => {
+    const { projId, taskId } = params;
+
+    const edit = await MetaDadosService.updateMetadadoItem("Projeto", [taskId], user.id, projId);
+    if (edit.error) return response(null, true, edit.msg, edit.code);
+
+    return response(edit.data);
+}
+
 export const addResultado = async (params, body, user) => {
     const { conteudo } = body;
 
@@ -314,8 +323,6 @@ export const addMetaAtual = async (params, body, user) => {
         return response(updateInstancia);
     }
 
-    if (parseFloat(metaAtual) > parseFloat(metaAlvoRow.content)) return response(null, true, "Informe um valor menor que a meta alvo");
-
     const updateMeta = await MetaDadosService.editMetaDado(metaId, [{ id: tipoDado.data.id, text: metaAtual }]);
     if (updateMeta.error) return response(null, true, updateMeta.msg, updateMeta.code);
 
@@ -353,6 +360,32 @@ export const editItem = async (params, body, user) => {
     return response(edited);
 }
 
+export const editCycle = async (params, body, user) => {
+    const { item } = params;
+    const { conteudo } = body;
+
+    const ciclo = await MetaDadosService.getMetaDadosById("Ciclo", item);
+    if (!ciclo) return response(null, true, "Erro ao editar ciclo");
+
+    const { dados } = ciclo.components;
+    const encerrado = dados.filter(m => m.dado === "Encerrado")[0];
+
+    const tipoDado = await TipoDadoService.getTipoDeDadoByName("Encerrado");
+    if (tipoDado.error) return response(null, true, "Erro ao editar ciclo");
+
+    if (!encerrado) {
+        const conteudoArray = (!Array.isArray(conteudo)) ? JSON.parse(conteudo) : conteudo;
+        const value = conteudoArray.filter(val => val.id == tipoDado.data.id)[0];
+
+        const updateInstancia = await MetaDadosService.updateIntancia("Ciclo", [{ id: tipoDado.data.id, text: value.text }], item);
+        if (updateInstancia.error) return response(null, true, updateInstancia.msg, updateInstancia.code);
+    }
+
+    const edited = await MetaDadosService.editMetaDado(item, conteudo);
+
+    return response(edited);
+}
+
 export const editProcess = async (params, body, user) => {
     const { item } = params;
     const { conteudo } = body;
@@ -381,17 +414,10 @@ export const editInstanciaItem = async (params, body, user) => {
     const itemIntance = await ItemService.getItensByItemId(item);
     if (itemIntance.error) return response(null, true, "Erro ao editar tarefa");
 
-    if (!itemIntance[0].elem) {
-        const updateInstancia = await MetaDadosService.updateIntancia("Tarefas", conteudo, item);
-        if (updateInstancia.error) return response(null, true, updateInstancia.msg, updateInstancia.code);
+    const updateMeta = await MetaDadosService.editMetaDado(item, conteudo);
+    if (updateMeta.error) return response(null, true, updateMeta.msg, updateMeta.code);
 
-        return response(updateInstancia);
-    } else {
-        const updateMeta = await MetaDadosService.editMetaDado(item, conteudo);
-        if (updateMeta.error) return response(null, true, updateMeta.msg, updateMeta.code);
-
-        return response(updateMeta);
-    }
+    return response(updateMeta);
 }
 
 export const delItem = async (params, body, user) => {
@@ -463,6 +489,38 @@ export const getPlanejamentoItemByTeam = async (params, body, user) => {
     });
 }
 
+export const getProjectTasks = async (params, body, user) => {
+    const { id } = params;
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    const item = await TipoItemService.getItemFullStructureByName("Projeto");
+    if (!item) return response(null, true, `Tipo de item ciclo não existe`);
+
+    const itens = await ItemService.testee(decodeURIComponent(id), item.tipoItem.id);
+    if (itens.error) return response(null, true, itens.msg, itens.code);
+
+    // let metaDado = await MetaDadosService.getMetaDados(item, Colaborador.id, "team");
+    // if (metaDado.error) return response(null, true, "Não foi possivel resgatar esse metadado");
+
+    return response({
+        itens,
+    });
+}
+
+export const getProjectconclusion = async (params, body, user) => {
+    const { id } = params;
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    const value = await ItemService.getProjectSum(id);
+    if (value.error) return response(null, true, value.msg, value.code);
+
+    return response({
+        value,
+    });
+}
+
 
 export const getPlanejamentoByItem = async (params, body, user) => {
     const { item } = params;
@@ -470,6 +528,19 @@ export const getPlanejamentoByItem = async (params, body, user) => {
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
     let metaDado = await MetaDadosService.getMetaDados(item, Colaborador.id);
+    if (metaDado.error) return response(null, true, "Não foi possivel resgatar esse metadado");
+
+    return response({
+        metaDado,
+    });
+}
+
+export const getMetaDadoAll = async (params, body, user) => {
+    const { item, kind } = params;
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    let metaDado = await MetaDadosService.getMetaDadosTemp(item, Colaborador.id, kind ?? '');
     if (metaDado.error) return response(null, true, "Não foi possivel resgatar esse metadado");
 
     return response({
@@ -497,6 +568,20 @@ export const getPlanejamentoByItemId = async (params, body, user) => {
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
     let metaDado = await MetaDadosService.getMetaDadosById(item, id);
+    if (metaDado.error) return response(null, true, "Não foi possivel resgatar esse metadado");
+
+    return response({
+        metaDado,
+    });
+}
+
+export const getMetaDadoSingle = async (params, body, user) => {
+    const { item, id, kind } = params;
+
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    let metaDado = await MetaDadosService.getMetaDadosSingleTemp(item, Colaborador.id, kind, id);
     if (metaDado.error) return response(null, true, "Não foi possivel resgatar esse metadado");
 
     return response({

@@ -13,11 +13,98 @@ import { getAllAssociated, getAllEquipes } from "../../cliente/service/Equipe.ts
 
 var entrou = [];
 
-export const getMetaDados = async (metadados, source = false, kind = "col") => {
-    const item = await TipoItemService.getItemFullStructureByName(metadados);
+function buildMetaTree(flatData, baseID) {
+    const baseItens = flatData.filter(item => item.item_base == baseID);
+
+    const builtList = [];
+    for (const itemSingle of baseItens) {
+        builtList.push({
+            id: itemSingle.item_id,
+            nome: itemSingle.item_nome,
+            tipoId: itemSingle.item_base,
+            data: itemSingle.data,
+            createdBy: {
+                name: itemSingle.criador_nome,
+                profile: itemSingle.criador_avatar,
+                origin: itemSingle.created_at
+            },
+            equipe: itemSingle.equipe,
+            components: recursiveTest(flatData, itemSingle.parent_ids)
+        });
+    }
+
+    return builtList;
+}
+
+const recursiveTest = (flatData, parentsIds) => {
+    if (parentsIds) {
+        let baseItens = [];
+
+        baseItens = flatData.filter(instance => parentsIds.includes(instance.item_id));
+
+        const builtList = [];
+        for (const itemSingle of baseItens) {
+            const newFlatdata = flatData.map(instance => {
+                if (!parentsIds.includes(instance.item_id)) {
+                    return instance;
+                }
+            }).filter(instance => instance !== undefined);
+
+            builtList.push({
+                id: itemSingle.item_id,
+                nome: itemSingle.item_nome,
+                tipoId: itemSingle.item_base,
+                data: itemSingle.data,
+                createdBy: {
+                    name: itemSingle.criador_nome,
+                    profile: itemSingle.criador_avatar,
+                    origin: itemSingle.created_at
+                },
+                equipe: itemSingle.equipe,
+                components: recursiveTest(newFlatdata, itemSingle.parent_ids)
+            });
+        }
+
+        return builtList;
+    }
+}
+
+export const getMetaDadosTemp = async (itemName: string, colaboradorId: number, kind = '') => {
+    const item = await TipoItemService.getItemFullStructureByName(itemName);
     if (!item) return response(null, true, `Tipo de item Inexiste`);
 
-    let itens;
+    const { data, error } = await supaCli
+        .rpc('get_flat_item_metadata', {
+            p_tipo_item_id: item.tipoItem.id,
+            p_user_id: colaboradorId,
+            p_kind: kind
+        });
+
+    const metaTree = buildMetaTree(data, item.tipoItem.id);
+
+    return metaTree;
+}
+
+export const getMetaDadosSingleTemp = async (itemName: string, colaboradorId: number, kind = '', id) => {
+    const item = await TipoItemService.getItemFullStructureByName(itemName);
+    if (!item) return response(null, true, `Tipo de item Inexiste`);
+
+    const { data, error } = await supaCli
+        .rpc('get_flat_item_metadata_by_id', {
+            p_tipo_item_id: item.tipoItem.id,
+            p_user_id: colaboradorId,
+            p_kind: kind,
+            i_id: id
+        });
+
+    const metaTree = buildMetaTree(data, item.tipoItem.id);
+
+    return metaTree;
+}
+
+export const getMetaDados = async (metadados, source = false, kind = "col", itens = null) => {
+    const item = await TipoItemService.getItemFullStructureByName(metadados);
+    if (!item) return response(null, true, `Tipo de item Inexiste`);
     //Get Overall Itens or from the logged user only
 
     if (!source) {
@@ -326,15 +413,30 @@ export const editMetaDado = async (id, conteudo) => {
     const editData = (!Array.isArray(conteudo)) ? JSON.parse(conteudo) : conteudo;
 
     let bodyStr = [];
+    let notIncludedData = [];
 
-    editData.forEach((item) => {
+    for (const item of editData) {
         const editInstance = metaInstancias.filter(metaIn => metaIn.dado.TipoDeDado.id == item.id)[0];
 
-        bodyStr.push({
-            where: editInstance.dado.id,
-            newData: item.text
-        });
-    });
+        if (editInstance) {
+            bodyStr.push({
+                where: editInstance.dado.id,
+                newData: item.text
+            });
+        } else {
+            if (item.text.length > 0) {
+                notIncludedData.push(item);
+            }
+        }
+    };
+
+
+    if (notIncludedData.length > 0) {
+        const tipoItem = await TipoItemService.getItemById(itemInstancias[0].item);
+
+        const updateInstancia = await updateIntancia(tipoItem.nome, notIncludedData, id);
+        if (updateInstancia.error) return response(null, true, updateInstancia.msg, updateInstancia.code);
+    }
 
     if (bodyStr.length > 0) {
         const editDados = await dadoService.editDadoList(bodyStr);

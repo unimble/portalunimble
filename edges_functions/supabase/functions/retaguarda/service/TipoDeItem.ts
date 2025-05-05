@@ -1,7 +1,7 @@
 import { supaCli } from "../../utils/supaClient.ts";
 import { response } from "../../utils/utils.ts";
 
-import { getByItemId } from "./MetaEstrutura.ts";
+import { getByItemId, getByItemIdExpand, editMetaEstrutura } from "./MetaEstrutura.ts";
 
 export const addTipoItem = async (name, meta) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
@@ -38,9 +38,30 @@ export const editStructure = async (meta, idItem) => {
 
     if (uniqueOrders.size !== orderCheck.length) return response(null, true, "Meta dados não podem ter ordens iguais!");
 
-    const metaData = await addItemModel(metaList, idItem);
+    const originalStructure = metaList.filter(item => item.original === true);
+    const newStructure = metaList.filter(item => item.original === false);
 
-    return response(metaData);
+    const getOriginal = await getByItemIdExpand(idItem);
+
+    for (const item of getOriginal) {
+        let order = -1;
+
+        if (item.dadoDependente) {
+            order = originalStructure.filter(str => str.id == item.dadoDependente.id)[0].order;
+        } else {
+            order = originalStructure.filter(str => str.id == item.itemDependente.id)[0].order;
+        }
+
+        if (order >= 0) {
+            await editMetaEstrutura(item.id, { ordem: order });
+        }
+    }
+
+    if (newStructure.length > 0) {
+        await addItemModel(newStructure, idItem);
+    }
+
+    return response(true);
 }
 
 export const addItemModel = async (meta, idItem) => {
