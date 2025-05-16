@@ -227,6 +227,8 @@ export const getMetaDadosFormEdit = async (id) => {
             ordem: est.metaEstrutura.ordem,
             idMetaEstrutura: est.metaEstrutura.id,
             idTipoDado: est.dado.TipoDeDado.id,
+            createdAt: item[0].created_at,
+            profile: item[0].criador,
             nomeDado: est.dado.TipoDeDado.nomedodado
         });
     }
