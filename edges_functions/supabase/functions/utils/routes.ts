@@ -53,6 +53,7 @@ export default {
         { route: "/planejamento/metaAtual", function: Planejamento.addMetaAtual },
         { route: "/planejamento/complementar", function: User.complementar },
         { route: "/planejamento/tarefa", function: Planejamento.addTarefa },
+        { route: "/planejamento/blank/:item", function: Planejamento.addBlank },
         { route: "/planejamento/processo", function: Planejamento.addProcesso },
         { route: "/planejamento/projeto", function: Planejamento.addProjeto },
     ],
@@ -66,6 +67,7 @@ export default {
     put: [
         { route: "/edit-tipoitem-structure/:id", function: TipoDeItem.editTipoItemStructure },
         { route: "/edit-tipoitem/:id", function: TipoDeItem.editTipoItem },
+        { route: "/edit-tipoitem/associate/:parentId/:childId", function: TipoDeItem.associateTipoItemInstance },
         { route: "/edit-permission/:id", function: Perfil.editPerfil },
         { route: "/edit-perfil/:id/:userId", function: Perfil.editUserPerfil },
         { route: "/planejamento/força/:item", function: Planejamento.editForça },
@@ -73,6 +75,7 @@ export default {
         { route: "/planejamento/conquistas/:item", function: Planejamento.editItem },
         { route: "/planejamento/objetivos/:item", function: Planejamento.editItem },
         { route: "/planejamento/metas/:item", function: Planejamento.editItem },
+        { route: "/planejamento/generic/:item", function: Planejamento.editItem },
         { route: "/planejamento/ciclos/:item", function: Planejamento.editCycle },
         { route: "/planejamento/metasedit/:item", function: Planejamento.editTarefaConcluido },
         { route: "/planejamento/tarefa/:item", function: Planejamento.editInstanciaItem },

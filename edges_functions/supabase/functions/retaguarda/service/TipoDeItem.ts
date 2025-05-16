@@ -45,18 +45,20 @@ export const editStructure = async (meta, idItem) => {
 
     for (const item of getOriginal) {
         let order = -1;
+        let button = null;
 
         if (item.dadoDependente) {
             order = originalStructure.filter(str => str.id == item.dadoDependente.id)[0].order;
         } else {
             order = originalStructure.filter(str => str.id == item.itemDependente.id)[0].order;
+            button = originalStructure.filter(str => str.id == item.itemDependente.id)[0].button ?? false;
         }
 
         if (order >= 0) {
-            await editMetaEstrutura(item.id, { ordem: order });
+            await editMetaEstrutura(item.id, { ordem: order, isButton:button });
         }
     }
-
+    
     if (newStructure.length > 0) {
         await addItemModel(newStructure, idItem);
     }
@@ -70,7 +72,7 @@ export const addItemModel = async (meta, idItem) => {
     let addObj = [];
 
     meta.forEach((item, i) => {
-        let row = { itemBase: idItem, ordem: item.order };
+        let row = { itemBase: idItem, ordem: item.order, isButton: item.button ?? false };
 
         if (item.type == "Item") {
             row = { ...row, itemDependente: item.id }

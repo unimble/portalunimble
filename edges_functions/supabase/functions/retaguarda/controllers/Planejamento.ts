@@ -33,7 +33,35 @@ export const addComentario = async (params, body, user) => {
     const update = await ItemService.updateItemById({ depende_de: newDepende }, commentId);
     if (update.error) return response(null, true, update.msg, update.code);
 
-    return response(update);
+    //formating value
+    const estruturaDependente = await metaInstanciaService.getMetaInstanciaByIdsExpand(registerMetadado.data.elem);
+    if (estruturaDependente.error) return response(null, true, estruturaDependente.msg, estruturaDependente.code);
+
+    const tipoItemData = await TipoItemService.getItemById(registerMetadado.data.item);
+    if (tipoItemData.error) return response(null, true, tipoItemData.msg, tipoItemData.code);
+
+    const subData = [];
+
+    for (const est of estruturaDependente) {
+        subData.push({
+            html: est.dado.TipoDeDado.campohtml,
+            conteudo: est.dado.Conteudo,
+            ordem: est.metaEstrutura.ordem,
+            idMetaEstrutura: est.metaEstrutura.id,
+            idTipoDado: est.dado.TipoDeDado.id,
+            nomeDado: est.dado.TipoDeDado.nomedodado,
+            origem: 'dependente',
+            dependeDeId: registerMetadado.data.id
+        });
+    }
+
+    return response({
+        instanceId: registerMetadado.data.id,
+        createdAt: registerMetadado.data.created_at,
+        profile: getItem[0].criador,
+        tipoItemName: tipoItemData.nome,
+        dados: subData
+    });
 }
 
 export const addCiclo = async (params, body, user) => {
@@ -285,6 +313,50 @@ export const addTarefa = async (params, body, user) => {
     return response(registerMetadado.data);
 }
 
+export const addBlank = async (params, body, user) => {
+    const { item } = params;
+
+    const tipoItem = await TipoItemService.getItemByName(item);
+    if (tipoItem.error) return response(null, true, tipoItem.msg, tipoItem.code);
+
+    const tipoItemEstrutura = await metaEstruturaService.getByItemIdExpand(tipoItem.id);
+    if (tipoItemEstrutura.error) return response(null, true, tipoItemEstrutura.msg, tipoItemEstrutura.code);
+
+    const text = tipoItemEstrutura.map(d => {
+        if (d.dadoDependente) {
+            return { id: d.dadoDependente.id, text: "" }
+        }
+    }).filter(f => f != null);
+
+    const registerMetadado = await MetaDadosService.registerMetadado(item, text, user.id);
+    if (registerMetadado.error) return response(null, true, registerMetadado.msg, registerMetadado.code);
+
+    //formating value
+    const estruturaDependente = await metaInstanciaService.getMetaInstanciaByIdsExpand(registerMetadado.data.elem);
+    if (estruturaDependente.error) return response(null, true, estruturaDependente.msg, estruturaDependente.code);
+
+    const subData = [];
+
+    for (const est of estruturaDependente) {
+        subData.push({
+            html: est.dado.TipoDeDado.campohtml,
+            conteudo: est.dado.Conteudo,
+            ordem: est.metaEstrutura.ordem,
+            idMetaEstrutura: est.metaEstrutura.id,
+            idTipoDado: est.dado.TipoDeDado.id,
+            nomeDado: est.dado.TipoDeDado.nomedodado,
+            origem: 'dependente',
+            dependeDeId: registerMetadado.data.id
+        });
+    }
+
+    return response({
+        instanceId: registerMetadado.data.id,
+        tipoItemName: item,
+        dados: subData
+    });
+}
+
 export const addProcesso = async (params, body, user) => {
     const { conteudo, equipe } = body;
 
@@ -357,7 +429,18 @@ export const editItem = async (params, body, user) => {
 
     const edited = await MetaDadosService.editMetaDado(item, conteudo);
 
-    return response(edited);
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    const instance = await ItemService.getItensByItemIdExpandTipoItem(item);
+    if (!instance) return response(null, true, `Colaborador não existe`);
+
+    let metaDado = await MetaDadosService.getMetaDadosSingleTemp(instance[0].item.nome, Colaborador.id, 'col', item);
+    if (metaDado.error) return response(null, true, "Não foi possivel resgatar esse metadado");
+
+    return response({
+        metaDado,
+    });
 }
 
 export const editCycle = async (params, body, user) => {

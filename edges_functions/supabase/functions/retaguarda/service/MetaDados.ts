@@ -28,7 +28,10 @@ function buildMetaTree(flatData, baseID) {
                 profile: itemSingle.criador_avatar,
                 origin: itemSingle.created_at
             },
-            equipe: itemSingle.equipe,
+            equipe: {
+                id: itemSingle.equipe_id,
+                nome: itemSingle.equipe_nome
+            },
             components: recursiveTest(flatData, itemSingle.parent_ids)
         });
     }
@@ -60,7 +63,10 @@ const recursiveTest = (flatData, parentsIds) => {
                     profile: itemSingle.criador_avatar,
                     origin: itemSingle.created_at
                 },
-                equipe: itemSingle.equipe,
+                equipe: {
+                    id: itemSingle.equipe_id,
+                    nome: itemSingle.equipe_nome
+                },
                 components: recursiveTest(newFlatdata, itemSingle.parent_ids)
             });
         }
@@ -223,7 +229,51 @@ export const getMetaDadosFormEdit = async (id) => {
             idTipoDado: est.dado.TipoDeDado.id,
             nomeDado: est.dado.TipoDeDado.nomedodado
         });
+    }
 
+    if (item[0].depende_de) {
+        const dependeDeList = await ItemService.getItensByItemIdList(item[0].depende_de);
+        if (!dependeDeList) return response(null, true, `Itens dependentes inexistentes`);
+
+        const itemEstrutura = await metaEstruturaService.getByItemIdExpand(item[0].item);
+        if (!itemEstrutura) return response(null, true, `Estrutura inexistente`);
+
+        const dependenciasComCampos = itemEstrutura.filter(d => d.itemDependente != null);
+
+        for (const dependeId of item[0].depende_de) {
+            const subData = [];
+            const dependente = dependeDeList.find(i => i.id === dependeId);
+            
+            if (!dependente || !dependente.elem) continue;
+
+            const estruturaDependente = await metaInstanciaService.getMetaInstanciaByIdsExpand(dependente.elem);
+            if (!estruturaDependente) continue;
+
+            const tipoItemInfo = await TipoItemService.getItemById(dependente.item);
+
+            for (const est of estruturaDependente) {
+                subData.push({
+                    html: est.dado.TipoDeDado.campohtml,
+                    conteudo: est.dado.Conteudo,
+                    ordem: est.metaEstrutura.ordem,
+                    idMetaEstrutura: est.metaEstrutura.id,
+                    idTipoDado: est.dado.TipoDeDado.id,
+                    nomeDado: est.dado.TipoDeDado.nomedodado,
+                    createdAt: dependente.created_at,
+                    profile: dependente.criador,
+                    origem: 'dependente',
+                    dependeDeId: dependeId
+                });
+            }
+
+            final.push({
+                instanceId: dependeId,
+                tipoItemName: tipoItemInfo.nome,
+                createdAt: dependente.created_at,
+                profile: dependente.criador,
+                dados: subData
+            })
+        }
     }
 
     final.sort((a, b) => a.ordem - b.ordem);

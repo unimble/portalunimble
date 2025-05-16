@@ -25,7 +25,8 @@ export const getByItemIdExpand = async (id) => {
             nomedodado,
             campohtml
         ),
-        ordem
+        ordem,
+        isButton
     `).eq("itemBase", id);
 
     if (error != null) return response(null, true, error.message, error.code);

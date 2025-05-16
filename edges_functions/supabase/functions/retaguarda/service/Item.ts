@@ -129,6 +129,63 @@ export const getItensByItemId = async (id) => {
     return data;
 }
 
+export const getItensByItemIdExpandTipoItem = async (id) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli.from("Item").select(`
+        id,
+        created_at,
+        criador (
+            usuario (
+                nome,
+                profile
+            )
+        ),
+        equipe (
+            id,
+            nome
+        ),
+        empresa,
+        depende_de,
+        elem,
+        item (
+            id,
+            nome
+        )
+    `).eq("id", id);
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data;
+}
+
+export const getItensByItemIdList = async (id) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli.from("Item").select(`
+        id,
+        created_at,
+        criador (
+            usuario (
+                nome,
+                profile
+            )
+        ),
+        equipe (
+            id,
+            nome
+        ),
+        empresa,
+        depende_de,
+        elem,
+        item 
+    `).in("id", id);
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data;
+}
+
 export const getItensByItemBaseByColaborador = async (id, colId) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 

@@ -3,6 +3,7 @@ import * as service from "../service/TipoDeItem.ts";
 import * as ItemService from "../service/Item.ts";
 import * as dadoService from "../service/Dado.ts";
 import * as metaInstanciaService from "../service/MetaInstancia.ts";
+import * as MetaDadosService from "../service/MetaDados.ts";
 
 export const delTipoItem = async (params, body) => {
     const { id } = params;
@@ -48,4 +49,21 @@ export const editTipoItemStructure = async (params, body) => {
     if (error) return response(null, true, msg, code);
 
     return response(data);
+}
+
+export const associateTipoItemInstance = async (params, body, user) => {
+    const { parentId, childId } = params;
+
+    const getParentInstance = await ItemService.getItensByItemId(parentId);
+    if (getParentInstance.error) return response(null, true, msg, code);
+
+    if (!getParentInstance[0].item) return response(null, true, "Não foi possivel associar as instancias");
+
+    const tipoItem = await service.getItemById(getParentInstance[0].item);
+    if (tipoItem.error) return response(null, true, msg, code);
+
+    const update = await MetaDadosService.updateMetadadoItem(tipoItem.nome, [childId], user.id, parentId);
+    if (update.error) return response(null, true, update.msg, update.code);
+
+    return response({});
 }
