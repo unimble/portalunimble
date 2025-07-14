@@ -3,7 +3,9 @@ import * as TipoDeItem from "../retaguarda/controllers/TipoDeItem.ts";
 import * as Planejamento from "../retaguarda/controllers/Planejamento.ts";
 import * as Principal from "../retaguarda/controllers/Principal.ts";
 import * as Perfil from "../cliente/controllers/Perfil.ts";
+import * as Colaborador from "../cliente/controllers/Colaborador.ts";
 import * as User from "../cliente/controllers/User.ts";
+import * as Empresa from "../cliente/controllers/Empresa.ts";
 import * as Permissao from "../cliente/controllers/Permissao.ts";
 
 export default {
@@ -25,6 +27,8 @@ export default {
         { route: "/planejamento/ciclo/:select", function: Planejamento.getCiclo },
         { route: "/planejamento/tarefas/projeto/:id", function: Planejamento.getProjectTasks },
         { route: "/planejamento/projeto/conclusao/:id", function: Planejamento.getProjectconclusion  },
+        { route: "/planejamento/projeto/usuario/:id", function: Planejamento.getProjectLider  },
+        { route: "/planejamento/kanban/padrao", function: Planejamento.getKanbanPadrao  },
         //Pagina principal
         { route: "/unimble/me", function: Principal.getHomeData },
         { route: "/unimble/equipe", function: Principal.getEquipe },
@@ -41,6 +45,7 @@ export default {
         { route: "/invite-member", function: Principal.inviteMember },
         //Planejamento
         { route: "/planejamento/comentario", function: Planejamento.addComentario },
+        { route: "/planejamento/kanban", function: Planejamento.addKanban },
         { route: "/planejamento/ciclo", function: Planejamento.addCiclo },
         { route: "/planejamento/força", function: Planejamento.addForça },
         { route: "/planejamento/oportunidades", function: Planejamento.addOportunidades },
@@ -48,7 +53,7 @@ export default {
         { route: "/planejamento/objetivos", function: Planejamento.addObjetivos },
         { route: "/planejamento/resultado", function: Planejamento.addResultado },
         { route: "/planejamento/resultadoFromScratch", function: Planejamento.addResultadoFromScratch },
-        { route: "/planejamento/resultado/duplicar/:cycleBase/:cycleId", function: Planejamento.addResultadoDuplicar },
+        { route: "/planejamento/resultado/duplicar/:cycleBase/:cycleId/:keepValue", function: Planejamento.addResultadoDuplicar },
         { route: "/planejamento/meta", function: Planejamento.addMeta },
         { route: "/planejamento/metaAtual", function: Planejamento.addMetaAtual },
         { route: "/planejamento/complementar", function: User.complementar },
@@ -62,13 +67,20 @@ export default {
         { route: "/del-tipoitem/:id", function: TipoDeItem.delTipoItem },
         { route: "/del-permissao/:id", function: Permissao.delPermissao },
         { route: "/del-perfil/:id", function: Perfil.delPerfil },
+        { route: "/del-colaborador/:id", function: Colaborador.delColaborador },
         { route: "/del-item/:id", function: Planejamento.delItem },
+        { route: "/del-team/:teamId", function: Principal.delEquipe },
+        { route: "/del-teamate/:teamId/:colId", function: Principal.removeUserFromTeam },
     ],
     put: [
+        { route: "/edit-user-company", function: Empresa.editEmpresa },
+        { route: "/edit-user-profile", function: User.addUserProfile },
+        { route: "/edit-user-name", function: User.editUserName },
         { route: "/edit-tipoitem-structure/:id", function: TipoDeItem.editTipoItemStructure },
         { route: "/edit-tipoitem/:id", function: TipoDeItem.editTipoItem },
         { route: "/edit-tipoitem/associate/:parentId/:childId", function: TipoDeItem.associateTipoItemInstance },
         { route: "/edit-permission/:id", function: Perfil.editPerfil },
+        { route: "/edit-photo", function: Perfil.editPhoto },
         { route: "/edit-perfil/:id/:userId", function: Perfil.editUserPerfil },
         { route: "/planejamento/força/:item", function: Planejamento.editForça },
         { route: "/planejamento/oportunidades/:item", function: Planejamento.editItem },
@@ -78,10 +90,13 @@ export default {
         { route: "/planejamento/generic/:item", function: Planejamento.editItem },
         { route: "/planejamento/ciclos/:item", function: Planejamento.editCycle },
         { route: "/planejamento/metasedit/:item", function: Planejamento.editTarefaConcluido },
-        { route: "/planejamento/tarefa/:item", function: Planejamento.editInstanciaItem },
-        { route: "/planejamento/processos/:item", function: Planejamento.editProcess },
+        { route: "/planejamento/tarefa/:item", function: Planejamento.editItem },
+        { route: "/planejamento/processos/:item", function: Planejamento.editItem },
         { route: "/planejamento/projeto/:projId/tarefa/:taskId", function: Planejamento.editProjectIncludeTask },
         { route: "/planejamento/projeto/:item", function: Planejamento.editItem },
+        { route: "/planejamento/kanban/:item", function: Planejamento.editItem },
+        { route: "/planejamento/atas/:item", function: Planejamento.editItem },
         { route: "/planejamento/done", function: Planejamento.finish },
+        { route: "/unimble/equipe/:teamId", function: Principal.editEquipe },
     ]
 }

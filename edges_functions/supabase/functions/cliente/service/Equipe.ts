@@ -39,7 +39,8 @@ export const getmembros = async (equipe) => {
         ),
         equipe (
             id,
-            nome
+            nome,
+            criador_equipe
         )
     `).eq("equipe", equipe);
 
@@ -58,6 +59,14 @@ export const getAllEquipes = async (col) => {
 
 export const getAllAssociated = async (equipe) => {
     const { data, error } = await supaCli.from("ColaboradorEquipes").select("*").in("equipe", equipe);
+
+    if (error != null) return false;
+
+    return data;
+}
+
+export const verifyEquipe = async (col, equipe) => {
+    const { data, error } = await supaCli.from("ColaboradorEquipes").select("*").eq("colaborador", col).eq("equipe", equipe);
 
     if (error != null) return false;
 
@@ -89,7 +98,52 @@ export const getEquipesByColaboradorIdAndName = async (col_id: string, name: str
 }
 
 export const getEquipesColaboradorIsIn = async (col_id) => {
-    const { data, error } = await supaCli.from("Equipe").select("*").contains("colaboradores", col_id);
+    const { data, error } = await supaCli.from("Equipe").select(`
+        id,
+        created_at,
+        nome,
+        empresa (
+            id,
+            nome
+        ),
+        colaboradores,
+        criador_equipe (
+            id,
+            user_id
+        )
+    `).contains("colaboradores", col_id);
+
+    if (error != null) return false;
+
+    return data;
+}
+
+export const removeColaboradorFromAllEquipes = async (col_id) => {
+    const { data, error } = await supaCli.from("ColaboradorEquipes").delete().eq("colaborador", col_id);
+
+    if (error != null) return false;
+
+    return data;
+}
+
+export const removeColaboradorFromOneEquipe = async (col_id, equipe_id) => {
+    const { data, error } = await supaCli.from("ColaboradorEquipes").delete().eq("colaborador", col_id).eq("equipe", equipe_id);
+
+    if (error != null) return false;
+
+    return data;
+}
+
+export const removeAllColaboradorFromEquipe = async (equipe_id) => {
+    const { data, error } = await supaCli.from("ColaboradorEquipes").delete().eq("equipe", equipe_id);
+
+    if (error != null) return false;
+
+    return data;
+}
+
+export const deleteEquipeById = async (id) => {
+    const { data, error } = await supaCli.from("Equipe").delete().eq("id", id);
 
     if (error != null) return false;
 

@@ -35,6 +35,14 @@ export const deleteAllPermitionByPerfilId = async (perfilId) => {
     return true;
 }
 
+export const deletePermitionByCol = async (id) => {
+    const { data, error } = await supaCli.from("Permissao").delete().eq("id", id);
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return true;
+}
+
 export const deletePermitionById = async (id) => {
     const { data, error } = await supaCli.from("Permissao").delete().eq("id", id);
 

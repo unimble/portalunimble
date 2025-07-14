@@ -13,7 +13,7 @@ import { getConviteByEmail, removeByEmail } from "./Convites.ts";
 
 export const registerUser = async (user) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
-    const { user_metadata, id } = user;
+    const { user_metadata, id, app_metadata } = user;
 
     //If user already exist return all data
     const alreadyExists = await getColaboradorByUserId(id);
@@ -26,19 +26,25 @@ export const registerUser = async (user) => {
     const verifyInvite = await getConviteByEmail(user_metadata.email);
 
     //Adding User from Token
-    const usuario = await registerUsuario(user_metadata.name, user_metadata.email, user_metadata.provider_id) as string;
-    if (!usuario) return response(null, true, "Erro ao cadastrar Usuario");
+    let usuario;
+    if (app_metadata.provider == "email") {
+        usuario = await registerUsuario("New user", user_metadata.email, "") as string;
+        if (!usuario) return response(usuario, true, "Erro ao cadastrar Usuario");
+    } else {
+        usuario = await registerUsuario(user_metadata.name, user_metadata.email, user_metadata.provider_id) as string;
+        if (!usuario) return response(usuario, true, "Erro ao cadastrar Usuario");
+    }
 
     if (verifyInvite.data.length == 0) {
         //getting Default Perfil
         const defaultPerfil = await getDefaultPerfil();
 
         //Adding new user as a Colaborador
-        const addColaborador = await registerColaborador({ usuario:usuario.id, perfil:defaultPerfil.id, user_id:id});
+        const addColaborador = await registerColaborador({ usuario: usuario.id, perfil: defaultPerfil.id, user_id: id });
         if (!addColaborador) return response(null, true, "Erro ao cadastrar Usuario");
 
         //Adding a initial generic company to new user
-        const empresaDefaultName = `Empresa de ${user_metadata.name}`;
+        const empresaDefaultName = `Empresa de ${(user_metadata.name) ? user_metadata.name : "new user"}`;
         const addEmpresa = await registerEmpresa(empresaDefaultName, addColaborador.id);
         if (!addEmpresa) return response(null, true, "Erro ao cadastrar Usuario");
 
@@ -69,7 +75,7 @@ export const registerUser = async (user) => {
         const invitePerfil = await getInvitePerfil();
 
         //Adding invited user as a Colaborador
-        const addColaborador = await registerColaborador({ usuario:usuario.id, perfil:invitePerfil.id, user_id:id, empresa:colaborador.empresa });
+        const addColaborador = await registerColaborador({ usuario: usuario.id, perfil: invitePerfil.id, user_id: id, empresa: colaborador.empresa });
         if (!addColaborador) return response(null, true, "Erro ao cadastrar Usuario");
 
         //Getting correct team

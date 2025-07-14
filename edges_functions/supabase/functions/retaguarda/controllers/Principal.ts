@@ -3,10 +3,22 @@ import * as service from "../service/TipoDeDado.ts";
 
 import * as MetaDadosService from "../service/MetaDados.ts";
 
+import {updateAllByTeamId} from "../service/Item.ts";
 import { getColaboradorByUserId, getColaboradorByUserIdExpand, getColaboradorByUserIdExpandIn, getColaboradorByUsuario } from "../../cliente/service/Colaborador.ts";
 import { getEmpresaByColaboradorId, getEmpresaById } from "../../cliente/service/Empresa.ts";
-import { getEquipesColaboradorIsIn, getEquipesByColaboradorIdAndName, registerEquipe, getEquipesById, getmembros, updateEquipe, associateEquipeToColaborador } from "../../cliente/service/Equipe.ts";
-import { addConvite, getConviteByEquipe } from "../../cliente/service/Convites.ts";
+import { getEquipesColaboradorIsIn,
+         getEquipesByColaboradorIdAndName,
+         registerEquipe,
+         getEquipesById,
+         getmembros,
+         updateEquipe,
+         associateEquipeToColaborador,
+         verifyEquipe,
+         getEquipesByColaboradorId,
+         removeAllColaboradorFromEquipe, 
+         deleteEquipeById, 
+         removeColaboradorFromOneEquipe } from "../../cliente/service/Equipe.ts";
+import { addConvite, getConviteByEquipe,removeByEquipe } from "../../cliente/service/Convites.ts";
 import { getUsuarioByEmail } from "../../cliente/service/Usuario.ts";
 
 export const getHomeData = async (params, body, user) => {
@@ -22,7 +34,8 @@ export const getHomeData = async (params, body, user) => {
         role: Colaborador.perfil.nome,
         created: Colaborador.created_at,
         empresaName: empresa[0].nome,
-        urgencia: empresa[0].urgencia
+        urgencia: empresa[0].urgencia,
+        profile: Colaborador.usuario.profile
     });
 }
 
@@ -43,6 +56,8 @@ export const getEquipe = async (params, body, user) => {
         obj.push({
             id: equipe.id,
             equipe: equipe.nome,
+            criador: equipe.criador_equipe,
+            empresa: equipe.empresa,
             users
         });
     }
@@ -90,6 +105,66 @@ export const addTeam = async (params, body, user) => {
     return response(addEquipe);
 }
 
+export const editEquipe = async (params, body, user) => {
+    const { teamId } = params;
+    const { name } = body;
+
+    if (name.length == 0) return response(null, true, `Campo de nome não pode ser vazio!`);
+
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    let equipes = await getEquipesByColaboradorId(Colaborador.id);
+    const equipeToEdit = equipes.filter(item => item.id == teamId)[0];
+
+    if (!equipeToEdit) return response(null, true, `Você não tem permissão para editar essa equipe`);
+
+    let edit = await updateEquipe({ nome: name }, teamId);
+    if (!edit) return response(null, true, `Erro ao editar equipe`);
+
+    return response(true);
+}
+
+export const delEquipe = async (params, body, user) => {
+    const { teamId } = params;
+
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    let equipes = await getEquipesByColaboradorId(Colaborador.id);
+    const equipeToDelete = equipes.filter(item => item.id == teamId)[0];
+
+    if (!equipeToDelete) return response(null, true, `Você não tem permissão para deletar essa equipe`);
+
+    await updateAllByTeamId({ equipe: null }, teamId);
+    await removeAllColaboradorFromEquipe(teamId);
+    await removeByEquipe(teamId);
+    await deleteEquipeById(teamId);
+
+
+    return response(true);
+}
+
+export const removeUserFromTeam = async (params, body, user) => {
+    const { teamId, colId } = params;
+
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    let equipes = await getEquipesByColaboradorId(Colaborador.id);
+    const equipeToDelete = equipes.filter(item => item.id == teamId)[0];
+
+    if (!equipeToDelete) return response(null, true, `Você não tem permissão para realizar essa ação`);
+
+    if (colId == equipeToDelete.criador_equipe) return response(null, true, `Não é permitido remover dono da equipe`);
+
+    const newTeam = equipeToDelete.colaboradores.filter(item => item !=colId);
+    await removeColaboradorFromOneEquipe(colId, teamId);
+    await updateEquipe({colaboradores: newTeam}, teamId);
+
+    return response(true);
+}
+
 export const inviteMember = async (params, body, user) => {
     const { email, equipeId } = body;
 
@@ -101,6 +176,8 @@ export const inviteMember = async (params, body, user) => {
     const equipe = await getEquipesById(equipeId);
     if (!equipe) return response(null, true, `Equipe não existe`);
 
+    if (equipe[0].criador_equipe != Colaborador.id) return response(null, true, `Você não tem permissão para realizar essa ação`);
+
     let equipeRealId = equipe[0].id;
     let inviteAdd: { anfitriao: string, email: string, equipe: string }[] = [];
 
@@ -109,6 +186,12 @@ export const inviteMember = async (params, body, user) => {
 
         if (verifyIfExist) {
             const col = await getColaboradorByUsuario(verifyIfExist.id);
+
+            const isAlreadyIn = await verifyEquipe(col.id, equipeId);
+
+            if (isAlreadyIn && isAlreadyIn.length > 0) {
+                return response(null, true, `E-mail ${member.email} já está inserido na equipe`);
+            }
 
             const [teamInvite] = await getEquipesById(equipeRealId);
             const teamMembers = Array.isArray(teamInvite.colaboradores) ? teamInvite.colaboradores : JSON.parse(teamInvite.colaboradores);

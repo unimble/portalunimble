@@ -23,6 +23,7 @@ function buildMetaTree(flatData, baseID) {
             nome: itemSingle.item_nome,
             tipoId: itemSingle.item_base,
             data: itemSingle.data,
+            dataId: itemSingle.dataid,
             createdBy: {
                 name: itemSingle.criador_nome,
                 profile: itemSingle.criador_avatar,
@@ -58,6 +59,7 @@ const recursiveTest = (flatData, parentsIds) => {
                 nome: itemSingle.item_nome,
                 tipoId: itemSingle.item_base,
                 data: itemSingle.data,
+                dataId: itemSingle.dataid,
                 createdBy: {
                     name: itemSingle.criador_nome,
                     profile: itemSingle.criador_avatar,
@@ -75,24 +77,33 @@ const recursiveTest = (flatData, parentsIds) => {
     }
 }
 
-export const getMetaDadosTemp = async (itemName: string, colaboradorId: number, kind = '') => {
+export const getMetaDadosTemp = async (itemName: string, colaboradorId: number, kind = '', context = '', pag) => {
     const item = await TipoItemService.getItemFullStructureByName(itemName);
     if (!item) return response(null, true, `Tipo de item Inexiste`);
 
-    const { data, error } = await supaCli
-        .rpc('get_flat_item_metadata', {
-            p_tipo_item_id: item.tipoItem.id,
-            p_user_id: colaboradorId,
-            p_kind: kind
-        });
+    const params = {
+        p_tipo_item_id: item.tipoItem.id,
+        p_user_id: colaboradorId,
+        p_context: (item.tipoItem.protegido == true) ? "" : context || null,
+        p_limit: pag.perPage ? parseInt(pag.perPage) : null,
+        p_offset: pag.offset ? parseInt(pag.offset) : null
+    };
 
-    const metaTree = buildMetaTree(data, item.tipoItem.id);
+    const total_params = {
+        p_tipo_item_id: item.tipoItem.id,
+        p_user_id: colaboradorId,
+        p_context: (item.tipoItem.protegido == true) ? "" : context || null,
+    };
 
-    return metaTree;
+    const total = await supaCli.rpc("get_flat_item_metadata_count", total_params);
+    const { data, error } = await supaCli.rpc("get_flat_item_metadata", params);
+
+    return { total: total.data, data: buildMetaTree(data, item.tipoItem.id) };
 }
 
 export const getMetaDadosSingleTemp = async (itemName: string, colaboradorId: number, kind = '', id) => {
     const item = await TipoItemService.getItemFullStructureByName(itemName);
+
     if (!item) return response(null, true, `Tipo de item Inexiste`);
 
     const { data, error } = await supaCli
@@ -106,6 +117,15 @@ export const getMetaDadosSingleTemp = async (itemName: string, colaboradorId: nu
     const metaTree = buildMetaTree(data, item.tipoItem.id);
 
     return metaTree;
+}
+
+
+export const getKanbanStandard = async () => {
+    let { data, error } = await supaCli
+        .rpc('get_kanbans_padrao');
+    if (error) return response(null, true, "Não foi possivel resgatar esse metadado");
+
+    return data;
 }
 
 export const getMetaDados = async (metadados, source = false, kind = "col", itens = null) => {
@@ -233,19 +253,17 @@ export const getMetaDadosFormEdit = async (id) => {
         });
     }
 
-    if (item[0].depende_de) {
+    if (item[0].depende_de && item[0].depende_de.length > 0) {
         const dependeDeList = await ItemService.getItensByItemIdList(item[0].depende_de);
         if (!dependeDeList) return response(null, true, `Itens dependentes inexistentes`);
 
         const itemEstrutura = await metaEstruturaService.getByItemIdExpand(item[0].item);
         if (!itemEstrutura) return response(null, true, `Estrutura inexistente`);
 
-        const dependenciasComCampos = itemEstrutura.filter(d => d.itemDependente != null);
-
         for (const dependeId of item[0].depende_de) {
             const subData = [];
             const dependente = dependeDeList.find(i => i.id === dependeId);
-            
+
             if (!dependente || !dependente.elem) continue;
 
             const estruturaDependente = await metaInstanciaService.getMetaInstanciaByIdsExpand(dependente.elem);
@@ -338,7 +356,7 @@ export const registerMetadado = async (name, conteudo = null, userId, equipeId =
     return response(registerItem.data);
 }
 
-export const registerMetadadoItem = async (name, conteudo, userId) => {
+export const registerMetadadoItem = async (name, conteudo, userId, equipe = null) => {
     const Colaborador = await getColaboradorByUserId(userId);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
@@ -350,21 +368,31 @@ export const registerMetadadoItem = async (name, conteudo, userId) => {
     const itemExist = await TipoItemService.getItemFullStructureByName(name);
     if (!itemExist) return response(null, true, `Tipo de item "${name}" não existe`);
 
-    const registerItem = await ItemService.addItem({ criador: Colaborador.id, depende_de: conteudoArray, item: itemExist.tipoItem.id, empresa: Colaborador.empresa });
+    const registerItem = await ItemService.addItem({ criador: Colaborador.id, depende_de: conteudoArray, item: itemExist.tipoItem.id, empresa: Colaborador.empresa, equipe });
     if (registerItem.error) return response(null, true, registerItem.msg, registerItem.code);
 
     return response(registerItem.data);
 }
 
+export const deleteMetadadoAll = async (ids, colId) => {
+    for (const id of ids) {
+        await deleteMetadado(id, colId);
+    }
+
+    return response(true);
+}
+
 export const deleteMetadado = async (id, colId) => {
     const itemInstancias = await ItemService.getItensByItemId(id);
-    const metaInstancias = await metaInstanciaService.getMetaInstanciaByIdsExpand(itemInstancias[0].elem);
+    const metaInstancias = await metaInstanciaService.getMetaInstanciaByIdsExpand(itemInstancias[0]?.elem);
 
-    const deleteMetaInstanciaIds = metaInstancias.map(i => i.id);
-    const deleteDadoIds = metaInstancias.map(i => i.dado.id);
+    if (metaInstancias && itemInstancias[0].item.protegido != true) {
+        const deleteMetaInstanciaIds = metaInstancias.map(i => i.id);
+        const deleteDadoIds = metaInstancias.map(i => i.dado.id);
 
-    const deleteMetaInstancia = await metaInstanciaService.deleteMetaInstanciaIn(deleteMetaInstanciaIds);
-    const deleteDado = await dadoService.deleteDadoIn(deleteDadoIds);
+        const deleteMetaInstancia = await metaInstanciaService.deleteMetaInstanciaIn(deleteMetaInstanciaIds);
+        const deleteDado = await dadoService.deleteDadoIn(deleteDadoIds);
+    }
 
     let itensByCol = await ItemService.getItensByColaborador(colId);
     let algo = [];
@@ -383,18 +411,22 @@ export const deleteMetadado = async (id, colId) => {
         }
     }
 
-    const { depende_de } = itemInstancias[0];
+    if (itemInstancias && itemInstancias.length > 0) {
+        const { depende_de } = itemInstancias[0];
 
-    if (depende_de != undefined) {
-        let depende_deList = String(depende_de).split(',').map(Number);
-        for (const itemDependente of depende_deList) {
-            const recursiveCall = await deleteMetadado(itemDependente, colId);
+        if (depende_de != undefined) {
+            let depende_deList = String(depende_de).split(',').map(Number);
+            for (const itemDependente of depende_deList) {
+                const recursiveCall = await deleteMetadado(itemDependente, colId);
+            }
+        }
+
+        if (itemInstancias[0].item.protegido != true) {
+            const { data, error, msg, code } = await ItemService.deleteItemById(id);
+            if (error && code == "23503") return response(null, true, "Não é possivel apagar esse item", code);
+            if (error) return response(null, true, msg, code);
         }
     }
-
-    const { data, error, msg, code } = await ItemService.deleteItemById(id);
-    if (error && code == "23503") return response(null, true, "Não é possivel apagar esse item", code);
-    if (error) return response(null, true, msg, code);
 
     return true;
 }
@@ -428,7 +460,7 @@ export const updateIntancia = async (name, conteudo, id) => {
 
     let dadoAdd = [];
     conteudoArray.forEach((item) => {
-        if (item.text.length > 0) dadoAdd.push({ TipoDeDado: item.id, Conteudo: item.text });
+        if (item.text != null && item.text.toString().length > 0) dadoAdd.push({ TipoDeDado: item.id, Conteudo: item.text });
     });
 
     const itemExist = await TipoItemService.getItemFullStructureByName(name);
@@ -476,15 +508,14 @@ export const editMetaDado = async (id, conteudo) => {
                 newData: item.text
             });
         } else {
-            if (item.text.length > 0) {
+            if (item.text != null && item.text.toString().length > 0) {
                 notIncludedData.push(item);
             }
         }
     };
 
-
     if (notIncludedData.length > 0) {
-        const tipoItem = await TipoItemService.getItemById(itemInstancias[0].item);
+        const tipoItem = await TipoItemService.getItemById(itemInstancias[0].item.id);
 
         const updateInstancia = await updateIntancia(tipoItem.nome, notIncludedData, id);
         if (updateInstancia.error) return response(null, true, updateInstancia.msg, updateInstancia.code);

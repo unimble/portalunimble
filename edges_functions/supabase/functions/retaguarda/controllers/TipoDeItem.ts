@@ -59,7 +59,7 @@ export const associateTipoItemInstance = async (params, body, user) => {
 
     if (!getParentInstance[0].item) return response(null, true, "Não foi possivel associar as instancias");
 
-    const tipoItem = await service.getItemById(getParentInstance[0].item);
+    const tipoItem = await service.getItemById(getParentInstance[0].item.id);
     if (tipoItem.error) return response(null, true, msg, code);
 
     const update = await MetaDadosService.updateMetadadoItem(tipoItem.nome, [childId], user.id, parentId);

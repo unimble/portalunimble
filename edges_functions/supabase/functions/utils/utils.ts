@@ -3,7 +3,7 @@ import routes from "./routes.ts";
 
 export const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, Content-Type, apikey, X-Client-Info',
+    'Access-Control-Allow-Headers': 'authorization, Content-Type, apikey, X-Client-Info, X-Context',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 }
 
@@ -86,8 +86,29 @@ export const isNumber = (target) => {
     return expression.test(target);
 }
 
-export const response = (data:any = null, error = false, msg = "Ops ocorreu um erro inesperado!", code = "") => {
+export const response = (data: any = null, error = false, msg = "Ops ocorreu um erro inesperado!", code = "") => {
     return { error, msg, code, data };
+}
+
+export const parseBase64 = (base64String) => {
+    const matches = base64String.match(/^data:(.*);base64,(.*)$/);
+    if (!matches || matches.length !== 3) {
+        throw new Error('Formato base64 inválido');
+    }
+
+    const contentType = matches[1];  // Ex: "image/png"
+    const base64Data = matches[2];  // Os dados da imagem
+    const byteCharacters = atob(base64Data);
+    const byteArrays = new Uint8Array(byteCharacters.length);
+
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteArrays[i] = byteCharacters.charCodeAt(i);
+    }
+
+    return {
+        blob: new Blob([byteArrays], { type: contentType }),
+        contentType
+    };
 }
 
 export const arraysAreEqual = (arr1, arr2) => {

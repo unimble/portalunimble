@@ -37,3 +37,12 @@ export const removeByEmail = async (email) => {
 
     return true;
 }
+
+export const removeByEquipe = async (equipe) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { error } = await supaCli.from("Convites").delete().eq("equipe", equipe);
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return true;
+}
