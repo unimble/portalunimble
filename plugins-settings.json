@@ -1,0 +1,67 @@
+{
+    "97e7b1ae-f88a-4697-849c-ee56ab49bb48": {
+        "id": "960ca05b-aec5-4c28-b3c8-58a5e9c722d9",
+        "name": "JavaScript",
+        "designId": "bb4fc774-c48b-4e22-bbc8-647406422ec0",
+        "pluginId": "97e7b1ae-f88a-4697-849c-ee56ab49bb48",
+        "publicData": {}
+    },
+    "2bd1c688-31c5-443e-ae25-59aa5b6431fb": {
+        "id": "e4703615-fe70-4d17-b9a2-bb0add1494ed",
+        "name": "REST API",
+        "designId": "bb4fc774-c48b-4e22-bbc8-647406422ec0",
+        "pluginId": "2bd1c688-31c5-443e-ae25-59aa5b6431fb",
+        "publicData": {}
+    },
+    "9c40819b-4a8f-468f-9ba5-4b9699f3361f": {
+        "id": "c49203d7-d48f-4fb5-8d47-9be0b6847e36",
+        "name": "Charts",
+        "designId": "bb4fc774-c48b-4e22-bbc8-647406422ec0",
+        "pluginId": "9c40819b-4a8f-468f-9ba5-4b9699f3361f",
+        "publicData": {}
+    },
+    "832d6f7a-42c3-43f1-a3ce-9a678272f811": {
+        "id": "50cd6c08-af27-4e10-9902-fd299fe2b06f",
+        "name": "Date",
+        "designId": "bb4fc774-c48b-4e22-bbc8-647406422ec0",
+        "pluginId": "832d6f7a-42c3-43f1-a3ce-9a678272f811",
+        "publicData": {}
+    },
+    "1fa0dd68-5069-436c-9a7d-3b54c340f1fa": {
+        "id": "ffcfceb7-f747-498c-b382-0ed0b9ce0b75",
+        "name": "Supabase Auth",
+        "designId": "bb4fc774-c48b-4e22-bbc8-647406422ec0",
+        "pluginId": "1fa0dd68-5069-436c-9a7d-3b54c340f1fa",
+        "publicData": {
+            "apiKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVucndxcGdsZHJ6cnliYnVuemp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTgxMDk2NjEsImV4cCI6MjAxMzY4NTY2MX0.v5U-53NdZqWE14SMbmnC6_Iy1lIQ3OcF6C6W6CybH0U",
+            "projectUrl": "https://enrwqpgldrzrybbunzjz.supabase.co"
+        }
+    },
+    "f9ef41c3-1c53-4857-855b-f2f6a40b7186": {
+        "id": "81da42e0-77e7-408c-9fb5-d065f08323a3",
+        "name": "Supabase",
+        "designId": "bb4fc774-c48b-4e22-bbc8-647406422ec0",
+        "pluginId": "f9ef41c3-1c53-4857-855b-f2f6a40b7186",
+        "publicData": {
+            "apiKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVucndxcGdsZHJ6cnliYnVuemp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTgxMDk2NjEsImV4cCI6MjAxMzY4NTY2MX0.v5U-53NdZqWE14SMbmnC6_Iy1lIQ3OcF6C6W6CybH0U",
+            "projectUrl": "https://enrwqpgldrzrybbunzjz.supabase.co",
+            "realtimeTables": {
+                "Dado": true,
+                "Item": true,
+                "Equipe": true,
+                "Perfil": true,
+                "Empresa": true,
+                "Usuario": true,
+                "Permissao": true,
+                "countries": true,
+                "TipoDeDado": true,
+                "TipoDeItem": true,
+                "Colaborador": true,
+                "countriesAuth": true,
+                "Perfil-Permissao": true,
+                "IntegracaoDadoItem": true,
+                "IntegracaoTipoDeItem": true
+            }
+        }
+    }
+}
