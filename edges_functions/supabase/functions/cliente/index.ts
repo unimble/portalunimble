@@ -9,7 +9,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const routerInvoked = router(method, url);
+    const parsedUrl = new URL(url, `http://${headers.get("host")}`);
+    const query = Object.fromEntries(parsedUrl.searchParams.entries());
+
+    const routerInvoked = router(method, decodeURIComponent(url));
     if (!routerInvoked) throw new Error(dict.ROUTE_NOT_FOUND);
 
     let body = [];
@@ -24,7 +27,7 @@ Deno.serve(async (req) => {
 
     const params = routerInvoked.params;
     const func_name = routerInvoked.function;
-    const { data, error, msg, code } = await func_name(params, body, user);
+    const { data, error, msg, code } = await func_name(params, body, user, Object.fromEntries(headers), query);
 
     if (error && code == "42501") throw new Error("Você não possui permissão para executar essa ação!");
     if (error) throw new Error(msg);

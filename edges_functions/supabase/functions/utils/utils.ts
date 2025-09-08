@@ -1,3 +1,5 @@
+import { nanoid } from "https://deno.land/x/nanoid/mod.ts";
+
 import { supaCli, supa } from "./supaClient.ts";
 import routes from "./routes.ts";
 
@@ -29,6 +31,10 @@ export const verifyUserIntegrity = async (headers) => {
     if (error != null) return false;
 
     return { user: data.user, token };
+}
+
+export const getNanoId = () =>{
+    return nanoid();
 }
 export const getAuth = (headers) => {
     let jwt = Object.fromEntries(headers).authorization;

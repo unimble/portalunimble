@@ -43,6 +43,22 @@ export const getColaboradorById = async (id: string) => {
     return data[0];
 }
 
+export const getColaboradorByEmail = async (email: string) => {
+    const { data, error } = await supaCli
+        .from("Colaborador")
+        .select(`
+    *,
+    Usuario!inner (
+      email
+    )
+  `)
+        .eq("Usuario.email", email);
+
+    if (error != null) return false;
+
+    return data[0];
+}
+
 export const getColaboradorByUserIdExpand = async (user_id: string) => {
     const { data, error } = await supaCli.from("Colaborador").select(`
         id,

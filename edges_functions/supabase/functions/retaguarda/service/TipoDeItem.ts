@@ -137,6 +137,23 @@ export const getItemFullStructureByName = async (name) => {
     };
 }
 
+export const getItemFullStructureByNameExpand = async (name) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli.from("TipoDeItem").select("*").eq("nome", name);
+
+    if (error != null || data.length == 0) return false;
+
+    const metaEstrutura = await getByItemIdExpand(data[0].id);
+
+    if (metaEstrutura.error) return false;
+
+    return {
+        tipoItem: data[0],
+        estrutura: metaEstrutura
+    };
+}
+
 export const deleteItemById = async (id) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 

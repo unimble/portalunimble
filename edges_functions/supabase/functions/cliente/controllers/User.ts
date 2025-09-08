@@ -13,6 +13,18 @@ export const addUser = async (params, body, user) => {
     return response(data);
 }
 
+export const recuperar = async (params, body, user) => {
+    const { email, senha } = body;
+
+    const { data, error, msg, code } = await service.recoveryPassword(email, senha);
+    return response({ data, error, msg, code });
+
+
+    if (error) return response(error, true, msg, code);
+
+    return response(data);
+}
+
 export const addUserProfile = async (params, body, user) => {
     const { conteudo } = body;
 

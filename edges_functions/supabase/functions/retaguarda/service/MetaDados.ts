@@ -77,26 +77,62 @@ const recursiveTest = (flatData, parentsIds) => {
     }
 }
 
-export const getMetaDadosTemp = async (itemName: string, colaboradorId: number, kind = '', context = '', pag) => {
+export const getMetaDadosTemp = async (itemName: string, colaboradorId: number, kind = '', context = '', pag, filters = "") => {
     const item = await TipoItemService.getItemFullStructureByName(itemName);
     if (!item) return response(null, true, `Tipo de item Inexiste`);
+
+    let params = {
+        p_tipo_item_id: item.tipoItem.id,
+        p_user_id: colaboradorId,
+        p_context: (item.tipoItem.protegido === true) ? null : context || null,
+        p_limit: pag?.perPage ? parseInt(pag?.perPage) : 50,
+        p_offset: pag?.offset ? parseInt(pag?.offset) : 0
+    };
+
+    let total_params = {
+        p_tipo_item_id: item.tipoItem.id,
+        p_user_id: colaboradorId,
+        p_context: (item.tipoItem.protegido === true) ? null : context || null,
+    };
+
+    if (filters != "") {
+        params = { ...params, p_filtro: filters };
+        total_params = { ...total_params, p_filtro: filters };
+    }
+
+    const total = await supaCli.rpc("get_metadados_count", total_params);
+    const { data, error } = await supaCli.rpc("get_metadados", params);
+
+    return { total: total.data, data: data ? buildMetaTree(data, item.tipoItem.id) : [] };
+}
+
+export const getMetaDadosAllTeams = async (itemName: string, colaboradorId: number, field_name = '', field_id = '', pag, filters = "") => {
+    const item = await TipoItemService.getItemFullStructureByName(itemName);
+    if (!item) return response(null, true, `Tipo de item Inexiste`);
+
+    let p_filtro = `(data ->> '${field_name}') = '${field_id}' ${filters}`;
+
 
     const params = {
         p_tipo_item_id: item.tipoItem.id,
         p_user_id: colaboradorId,
-        p_context: (item.tipoItem.protegido == true) ? "" : context || null,
         p_limit: pag.perPage ? parseInt(pag.perPage) : null,
-        p_offset: pag.offset ? parseInt(pag.offset) : null
+        p_offset: pag.offset ? parseInt(pag.offset) : null,
+        p_filtro
     };
 
     const total_params = {
         p_tipo_item_id: item.tipoItem.id,
         p_user_id: colaboradorId,
-        p_context: (item.tipoItem.protegido == true) ? "" : context || null,
+        p_filtro
     };
 
-    const total = await supaCli.rpc("get_flat_item_metadata_count", total_params);
-    const { data, error } = await supaCli.rpc("get_flat_item_metadata", params);
+    const total = await supaCli.rpc("get_flat_item_metadata_allteams_total", total_params);
+    const { data, error } = await supaCli.rpc("get_flat_item_metadata_allteams", params);
+
+    if (!data) {
+        return { total: error, data: [] }
+    }
 
     return { total: total.data, data: buildMetaTree(data, item.tipoItem.id) };
 }
@@ -301,6 +337,64 @@ export const getMetaDadosFormEdit = async (id) => {
     return final;
 };
 
+export const getMetaDadosFormEditNew = async (id, pag = []) => {
+
+    const { data, error } = await supaCli
+        .rpc('get_formedit', {
+            p_instance_id: id,
+            p_paginacoes: pag
+        });
+
+    let total = 0;
+
+    if (pag.length > 0) {
+        total = await supaCli
+            .rpc('get_formedit_count', {
+                p_instance_id: id,
+                p_paginacoes: pag
+            });
+
+        if(!total.error){
+            total = total.data;
+        }
+    }
+
+    if (error) return response(null, true, `Erro ao recuperar formulario`);
+
+    let final = [];
+
+    for (const item of data) {
+        let obj = {
+            instanceId: item.id,
+            tipoItemName: item.item.nome,
+            createdAt: item.created_at,
+            profile: item.criador,
+            dados: []
+        };
+
+        let list = [];
+        const { instancia } = item;
+
+        for (const inst of instancia) {
+            list.push({
+                html: inst.dado.tipoDeDado.campohtml,
+                conteudo: inst.dado.conteudo,
+                ordem: inst.metaEstrutura.ordem,
+                idMetaEstrutura: inst.metaEstrutura.id,
+                idTipoDado: inst.dado.tipoDeDado.id,
+                createdAt: item.created_at,
+                profile: item.criador,
+                nomeDado: inst.dado.tipoDeDado.nomedodado
+            })
+        }
+
+
+        final.push({ ...obj, dados: list, principal: (item.id == id) });
+    }
+
+    return { final, total };
+};
+
 
 export const registerMetadado = async (name, conteudo = null, userId, equipeId = null) => {
     const Colaborador = await getColaboradorByUserId(userId);
@@ -444,7 +538,8 @@ export const updateMetadadoItem = async (name, conteudo, userId, itemId, overlap
 
     if (updateItem[0].depende_de && updateItem[0].depende_de != null && !overlap) {
         const dependeDeArray = String(updateItem[0].depende_de).split(',').map(Number);
-        conteudo.push(...dependeDeArray);
+        conteudo = String(conteudo).split(',').map(Number);
+        conteudo = Array.from(new Set([...conteudo, ...dependeDeArray]));
     }
 
     const update = await ItemService.updateItemById({ depende_de: conteudo }, itemId);

@@ -4,7 +4,7 @@ import { response } from "../../utils/utils.ts";
 //services
 import { getDefaultPerfil, getPerfilById, getInvitePerfil } from "./Perfil.ts";
 import { getUserPermissions } from "./Permissao.ts";
-import { registerColaborador, getColaboradorByUserId, getColaboradorById, editEmpresa } from "./Colaborador.ts";
+import { registerColaborador, getColaboradorByUserId, getColaboradorByEmail, getColaboradorById, editEmpresa } from "./Colaborador.ts";
 import { registerEmpresa, getEmpresaByColaboradorId } from "./Empresa.ts";
 import { registerEquipe, getEquipesByColaboradorId, associateEquipeToColaborador, getEquipesById, updateEquipe } from "./Equipe.ts";
 import { registerUsuario, getUsuarioById } from "./Usuario.ts";
@@ -118,4 +118,19 @@ export const fetchAllUserData = async (id) => {
     } catch (e) {
         return false;
     }
+}
+
+export const recoveryPassword = async (email, senha) => {
+    const alreadyExists = await getColaboradorByEmail(email);
+
+    if (!alreadyExists) return response(null, true, "Usuario com esse e-mail não existe");
+
+    const { data, error } = await supaCli.auth.admin.updateUserById(
+        alreadyExists.user_id,
+        { password: senha }
+    )
+
+    if(error) return response(error);
+
+    return response({})
 }

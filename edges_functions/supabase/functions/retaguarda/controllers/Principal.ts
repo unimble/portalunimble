@@ -1,25 +1,42 @@
 import { response, isNumber } from "../../utils/utils.ts";
+import Email from "../../utils/email.ts";
 import * as service from "../service/TipoDeDado.ts";
 
 import * as MetaDadosService from "../service/MetaDados.ts";
 
-import {updateAllByTeamId} from "../service/Item.ts";
+import { updateAllByTeamId } from "../service/Item.ts";
 import { getColaboradorByUserId, getColaboradorByUserIdExpand, getColaboradorByUserIdExpandIn, getColaboradorByUsuario } from "../../cliente/service/Colaborador.ts";
 import { getEmpresaByColaboradorId, getEmpresaById } from "../../cliente/service/Empresa.ts";
-import { getEquipesColaboradorIsIn,
-         getEquipesByColaboradorIdAndName,
-         registerEquipe,
-         getEquipesById,
-         getmembros,
-         updateEquipe,
-         associateEquipeToColaborador,
-         verifyEquipe,
-         getEquipesByColaboradorId,
-         removeAllColaboradorFromEquipe, 
-         deleteEquipeById, 
-         removeColaboradorFromOneEquipe } from "../../cliente/service/Equipe.ts";
-import { addConvite, getConviteByEquipe,removeByEquipe } from "../../cliente/service/Convites.ts";
+import {
+    getEquipesColaboradorIsInTotal,
+    getEquipesColaboradorIsIn,
+    getEquipesByColaboradorIdAndName,
+    registerEquipe,
+    getEquipesById,
+    getmembros,
+    updateEquipe,
+    associateEquipeToColaborador,
+    verifyEquipe,
+    getEquipesByColaboradorId,
+    removeAllColaboradorFromEquipe,
+    deleteEquipeById,
+    removeColaboradorFromOneEquipe,
+    updateEquipeMember
+} from "../../cliente/service/Equipe.ts";
+import { addConvite, getConviteByEquipe, removeByEquipe, removeByEmail, getConviteByEmail } from "../../cliente/service/Convites.ts";
 import { getUsuarioByEmail } from "../../cliente/service/Usuario.ts";
+
+export const testeEnv = async (params, body, user) => {
+    const sendEmail = await Email.send(
+        "guilhermegdrag@gmail.com",
+        "Bem-vindo à plataforma!",
+        "Obrigado por se cadastrar. <b>HEHE</b>"
+    )
+
+    return response({
+        result: sendEmail
+    });
+}
 
 export const getHomeData = async (params, body, user) => {
     const { id } = params;
@@ -31,6 +48,7 @@ export const getHomeData = async (params, body, user) => {
 
     return response({
         userName: Colaborador.usuario.nome,
+        email: Colaborador.usuario.email,
         role: Colaborador.perfil.nome,
         created: Colaborador.created_at,
         empresaName: empresa[0].nome,
@@ -39,31 +57,69 @@ export const getHomeData = async (params, body, user) => {
     });
 }
 
-export const getEquipe = async (params, body, user) => {
+export const getEquipe = async (params, body, user, headers, query) => {
     const { id } = params;
 
     const Colaborador = await getColaboradorByUserIdExpand(user.id);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
-    let equipes = await getEquipesColaboradorIsIn([Colaborador.id]);
+    const equipes = await getEquipesColaboradorIsIn([Colaborador.id], {
+        perPage: query?.perPage,
+        offset: query?.offset
+    });
+
     if (!equipes) return response(null, true, `Equipe não existe`);
 
-    let obj = [];
-    //getting member name
-    for (const equipe of equipes) {
-        const users = await getColaboradorByUserIdExpandIn(equipe.colaboradores);
+    const obj = await Promise.all(
+        equipes.map(async (equipe) => {
+            const users = await getColaboradorByUserIdExpandIn(equipe.colaboradores);
+            return {
+                id: equipe.id,
+                equipe: equipe.nome,
+                urlId: equipe.mnemonico,
+                criador: equipe.criador_equipe,
+                empresa: equipe.empresa,
+                users
+            };
+        })
+    );
 
-        obj.push({
-            id: equipe.id,
-            equipe: equipe.nome,
-            criador: equipe.criador_equipe,
-            empresa: equipe.empresa,
-            users
-        });
-    }
+    obj.sort((a, b) => a.equipe.localeCompare(b.equipe, 'pt', { sensitivity: 'base' }));
 
     return response(obj);
-}
+};
+
+// export const getEquipeTemp = async (params, body, user, headers, query) => {
+//     const { id } = params;
+
+//     const Colaborador = await getColaboradorByUserIdExpand(user.id);
+//     if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+//     const equipes = await getEquipesColaboradorIsIn([Colaborador.id], {
+//         perPage: query?.perPage,
+//         offset: query?.offset
+//     });
+
+//     const equipesCount = await getEquipesColaboradorIsInTotal([Colaborador.id]);
+//     if (!equipes) return response(null, true, `Equipe não existe`);
+
+//     const obj = await Promise.all(
+//         equipes.map(async (equipe) => {
+//             const users = await getColaboradorByUserIdExpandIn(equipe.colaboradores);
+//             return {
+//                 id: equipe.id,
+//                 equipe: equipe.nome,
+//                 criador: equipe.criador_equipe,
+//                 empresa: equipe.empresa,
+//                 users
+//             };
+//         })
+//     );
+
+//     obj.sort((a, b) => a.equipe.localeCompare(b.equipe, 'pt', { sensitivity: 'base' }));
+
+//     return response({ equipes: obj, equipesCount });
+// };
 
 export const getEquipeMembros = async (params, body, user) => {
     const { id } = params;
@@ -158,9 +214,9 @@ export const removeUserFromTeam = async (params, body, user) => {
 
     if (colId == equipeToDelete.criador_equipe) return response(null, true, `Não é permitido remover dono da equipe`);
 
-    const newTeam = equipeToDelete.colaboradores.filter(item => item !=colId);
+    const newTeam = equipeToDelete.colaboradores.filter(item => item != colId);
     await removeColaboradorFromOneEquipe(colId, teamId);
-    await updateEquipe({colaboradores: newTeam}, teamId);
+    await updateEquipe({ colaboradores: newTeam }, teamId);
 
     return response(true);
 }
@@ -210,6 +266,28 @@ export const inviteMember = async (params, body, user) => {
     if (inviteAdd.length > 0) {
         let invite = await addConvite(inviteAdd);
         if (!invite) return response(null, true, `Erro ao adicionar equipe!`);
+    }
+
+    return response({});
+}
+
+export const inviteVerify = async (params, body, user) => {
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    const convites = await getConviteByEmail(Colaborador.usuario.email);
+    if (convites.error) return response(null, true, `Erro ao verificar convites!`);
+
+    if (convites.data.length > 0) {
+        await Promise.all(
+            convites.data.map(async (convite) => {
+                await associateEquipeToColaborador(Colaborador.id, convite.equipe);
+                await updateEquipeMember(Colaborador.id, convite.equipe);
+            })
+        );
+
+        const removeConvites = await removeByEmail(Colaborador.usuario.email);
+        if (!removeConvites) return response(null, true, `Erro ao verificar convites!`);
     }
 
     return response({});
