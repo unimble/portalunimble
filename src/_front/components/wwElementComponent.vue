@@ -219,7 +219,7 @@ export default {
 
         const wwTechnicalAttributes = computed(() => {
             let attributes = {
-                'data-ww-element': true,
+                'data-ww-element': !props.noInteraction,
                 'data-ww-uid': props.uid,
                 'data-ww-component-id': id,
             };

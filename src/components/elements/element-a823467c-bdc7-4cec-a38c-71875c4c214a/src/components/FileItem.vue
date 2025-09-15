@@ -33,14 +33,14 @@
                 :style="actionButtonStyles"
                 aria-label="Remove file"
             >
-                <div class="fas fa-times"></div>
+                <div class="icon" v-html="removeIcon"></div>
             </button>
         </div>
     </li>
 </template>
 
 <script>
-import { computed, inject } from 'vue';
+import { computed, inject, onMounted, ref } from 'vue';
 
 export default {
     props: {
@@ -81,9 +81,12 @@ export default {
         const showFileInfo = computed(() => content.value?.showFileInfo);
 
         const fileItemStyles = computed(() => ({
-            padding: content.value?.fileItemPadding || '12px',
+            backgroundColor: content.value?.fileItemBackground || '#fff',
+            borderColor: content.value?.fileItemBorderColor || '#eee',
             borderRadius: content.value?.fileItemBorderRadius || '6px',
+            padding: content.value?.fileItemPadding || '12px',
             margin: content.value?.fileItemMargin || '0 0 8px 0',
+            boxShadow: content.value?.fileItemShadow || '0 2px 4px rgba(0, 0, 0, 0.05)',
             position: 'relative',
             overflow: 'hidden',
         }));
@@ -105,6 +108,7 @@ export default {
         const actionButtonStyles = computed(() => ({
             width: content.value?.actionButtonSize || '28px',
             height: content.value?.actionButtonSize || '28px',
+            backgroundColor: content.value?.actionButtonBackground || '#fff',
             color: content.value?.actionButtonColor || '#666',
             borderRadius: content.value?.actionButtonBorderRadius || '4px',
             margin: content.value?.actionButtonMargin || '0 0 0 4px',
@@ -120,6 +124,17 @@ export default {
             return `${(fileSizeInBytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
         });
 
+        const { getIcon } = wwLib.useIcons();
+        const removeIcon = ref(null);
+
+        onMounted(async () => {
+            try {
+                removeIcon.value = await getIcon('lucide/trash');
+            } catch (e) {
+                removeIcon.value = null;
+            }
+        });
+
         return {
             formattedSize,
             filesCount,
@@ -129,6 +144,7 @@ export default {
             actionButtonStyles,
             content,
             showFileInfo,
+            removeIcon,
         };
     },
 };
@@ -143,7 +159,6 @@ export default {
     border-radius: v-bind('content?.fileItemBorderRadius || "6px"');
     margin-bottom: v-bind('(content?.fileItemMargin || "0 0 8px 0").split(" ")[2] || "8px"');
     background-color: v-bind('content?.fileItemBackground || "#fff"');
-    box-shadow: v-bind('content?.fileItemShadow || "0 2px 4px rgba(0, 0, 0, 0.05)"');
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     transform-origin: center;
     position: relative;
@@ -151,14 +166,6 @@ export default {
     backface-visibility: hidden;
     will-change: transform, opacity;
     overflow: hidden;
-
-    &:hover {
-        border-color: v-bind('content?.fileItemHoverBorderColor || content?.fileItemBorderColor || "#ddd"');
-        background-color: v-bind('content?.fileItemHoverBackground || content?.fileItemBackground || "#fff"');
-        box-shadow: v-bind(
-            'content?.fileItemHoverShadow || content?.fileItemShadow || "0 2px 4px rgba(0, 0, 0, 0.05)"'
-        );
-    }
 
     &__progress {
         position: absolute;
@@ -168,6 +175,14 @@ export default {
         z-index: 0;
         transition: width 1.2s ease;
         opacity: 0.2;
+    }
+
+    &:hover {
+        border-color: v-bind('content?.fileItemHoverBorderColor || content?.fileItemBorderColor || "#ddd"');
+        background-color: v-bind('content?.fileItemHoverBackground || content?.fileItemBackground || "#fff"');
+        box-shadow: v-bind(
+            'content?.fileItemHoverShadow || content?.fileItemShadow || "0 2px 4px rgba(0, 0, 0, 0.05)"'
+        );
     }
 
     &--disabled {
@@ -207,6 +222,10 @@ export default {
         z-index: 1;
     }
 
+    &:hover &__actions {
+        opacity: 1;
+    }
+
     &__btn {
         display: flex;
         align-items: center;
@@ -224,8 +243,8 @@ export default {
         &:hover:not(:disabled) {
             border-color: v-bind(
                 'content?.actionButtonHoverBorderColor || content?.fileItemHoverBorderColor || "#ddd"'
-            ) !important;
-            background-color: v-bind('content?.actionButtonHoverBackground || "#f8f8f8"') !important;
+            );
+            background-color: v-bind('content?.actionButtonHoverBackground || "#f8f8f8"');
             transform: scale(1.05);
         }
 
@@ -233,10 +252,25 @@ export default {
             opacity: 0.5;
             cursor: not-allowed;
         }
-    }
 
-    &:hover &__actions {
-        opacity: 1;
+        &--remove:hover:not(:disabled) {
+            color: v-bind('content?.actionButtonRemoveHoverColor || content?.progressBarColor || "#999"');
+            border-color: v-bind('content?.actionButtonRemoveHoverColor || content?.progressBarColor || "#999"');
+        }
+
+        .icon {
+            width: 50%;
+            height: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            :deep(svg) {
+                width: 100% !important;
+                height: 100% !important;
+                display: block;
+            }
+        }
     }
 }
 </style>

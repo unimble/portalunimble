@@ -5,7 +5,7 @@ export default {
     },
     icon: "table",
     customStylePropertiesOrder: [
-      ["layout", "height", "textColor", "borderColor"],
+      ["layout", "height", "textColor", "borderColor", "wrapperBorderRadius"],
       [
         "headerTitle",
         "headerBackgroundColor",
@@ -1125,5 +1125,16 @@ export default {
       defaultValue: {},
       hidden: (content) => content.lang !== "custom",
     },
+    wrapperBorderRadius: {
+      label: { en: "Border Radius" },
+      type: "Length",
+      options: {
+        noRange: true
+      },
+      bindable: true,
+      responsive: true,
+      states: true,
+      classes: true,
+    }
   },
 };

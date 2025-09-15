@@ -31,6 +31,7 @@ A highly customizable data grid/table component that supports features like sort
 - `headerFontSize`: `string` - Font size of header text.
 - `headerFontFamily`: `string` - Font family for header text.
 - `borderColor`: `string | null` - Color of grid borders.
+- `wrapperBorderRadius`: `string | null` - Border radius of the wrapper
 - `cellColor`: `string | null` - Text color of grid cells.
 - `cellFontFamily`: `string` - Font family for cell text.
 - `cellFontSize`: `string` - Font size for cell text.

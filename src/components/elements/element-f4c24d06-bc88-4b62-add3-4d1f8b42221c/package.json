@@ -1,0 +1,1 @@
+{"name":"ww-skeleton-loader","repository":{"type":"git","url":"https://github.com/weweb-assets/ww-breadcrumb"},"version":"2.0.0","license":"MIT","scripts":{"build":"weweb build","serve":"weweb serve"}}

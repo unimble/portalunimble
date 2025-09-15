@@ -1,6 +1,13 @@
-import { createClient, FunctionsHttpError, FunctionsRelayError, FunctionsFetchError } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 import { generateFilter } from './helpers/filters';
+
+import {
+    buildQueryString,
+    buildHeaders,
+    executeRegularInvocation,
+    executeStreamingInvocation,
+} from './helpers/edgeFunction.js';
 
 export default {
     instance: null,
@@ -235,49 +242,51 @@ export default {
         if (error) throw new Error(error.message, { cause: error });
         return this.formatReturn(data, count);
     },
-    async invokeEdgeFunction({ functionName, body, headers = [], queries = [], method = 'POST' }, wwUtils) {
-        wwUtils?.log('info', `[Supabase] Invoke an Edge function - ${functionName}`, {
+    async invokeEdgeFunction(args, wwUtils) {
+        const {
+            functionName,
+            body,
+            headers = [],
+            queries = [],
+            method = 'POST',
+            useStreaming = false,
+            streamVariableId = null,
+        } = args;
+
+
+        wwUtils?.log('info', `[Supabase] ${useStreaming ? 'Streaming' : 'Invoking'} Edge function - ${functionName}`, {
             type: 'request',
             preview: { body, headers, method },
         });
-        const query = Array.isArray(queries)
-            ? queries
-            : queries && typeof queries === 'object'
-                ? Object.keys(queries).map(k => ({ key: k, value: queries[k] }))
-                : [];
-        const queryString = query.length
-            ? query.reduce((result, item) => `${result}${item.key}=${item.value}&`, '?')
-            : '';
-        const { data, error } = await this.instance.functions.invoke(functionName + queryString, {
-            body: method === 'GET' ? undefined : body,
-            headers: Array.isArray(headers)
-                ? headers.reduce((result, item) => ({ ...result, [item.key]: item.value }), {})
-                : headers,
-            method,
-        });
+        const queryString = buildQueryString(queries);
+        const headerObject = buildHeaders(headers);
 
-        if (error instanceof FunctionsHttpError) {
-            throw new Error('Function returned an error with status code ' + error.context.status, {
-                cause: { ...error, status: error?.context?.status, data: await error?.context?.json?.() },
-            });
-        } else if (error instanceof FunctionsRelayError) {
-            throw new Error('Relay error: ' + error.message, {
-                cause: { ...error, status: error?.context?.status, data: await error?.context?.json?.() },
-            });
-        } else if (error instanceof FunctionsFetchError) {
-            throw new Error('Fetch error: ' + error.message, {
-                cause: { ...error, status: error?.context?.status, data: await error?.context?.json?.() },
-            });
-        } else if (error) {
-            throw new Error(error.message, {
-                cause: { ...error, status: error?.context?.status, data: await error?.context?.json?.() },
-            });
-        }
-
-        try {
-            return JSON.parse(data);
-        } catch (error) {
-            return data;
+        if (useStreaming) {
+            return await executeStreamingInvocation(
+                {
+                    instance: this.instance,
+                    functionName,
+                    queryString,
+                    method,
+                    body,
+                    headerObject,
+                    streamVariableId,
+                    wwLib,
+                },
+                wwUtils
+            );
+        } else {
+            return await executeRegularInvocation(
+                {
+                    instance: this.instance,
+                    functionName,
+                    queryString,
+                    method,
+                    body,
+                    headerObject,
+                },
+                wwUtils
+            );
         }
     },
     async listFiles({ bucket, path, options = {} }, wwUtils) {
@@ -311,14 +320,14 @@ export default {
             path,
             options.transform
                 ? {
-                    transform: {
-                        ...(options.transform.format ? { format: options.transform.format } : {}),
-                        ...(options.transform.quality ? { quality: options.transform.quality } : {}),
-                        ...(options.transform.resize ? { resize: options.transform.resize } : {}),
-                        ...(options.transform.width ? { width: options.transform.width } : {}),
-                        ...(options.transform.height ? { height: options.transform.height } : {}),
-                    },
-                }
+                      transform: {
+                          ...(options.transform.format ? { format: options.transform.format } : {}),
+                          ...(options.transform.quality ? { quality: options.transform.quality } : {}),
+                          ...(options.transform.resize ? { resize: options.transform.resize } : {}),
+                          ...(options.transform.width ? { width: options.transform.width } : {}),
+                          ...(options.transform.height ? { height: options.transform.height } : {}),
+                      },
+                  }
                 : {}
         );
         if (error) throw new Error(error.message, { cause: error });
@@ -370,12 +379,12 @@ export default {
                 download: options.download ? options.download.filename || true : false,
                 transform: options.transform
                     ? {
-                        ...(options.transform.format ? { format: options.transform.format } : {}),
-                        ...(options.transform.quality ? { quality: options.transform.quality } : {}),
-                        ...(options.transform.resize ? { resize: options.transform.resize } : {}),
-                        ...(options.transform.width ? { width: options.transform.width } : {}),
-                        ...(options.transform.height ? { height: options.transform.height } : {}),
-                    }
+                          ...(options.transform.format ? { format: options.transform.format } : {}),
+                          ...(options.transform.quality ? { quality: options.transform.quality } : {}),
+                          ...(options.transform.resize ? { resize: options.transform.resize } : {}),
+                          ...(options.transform.width ? { width: options.transform.width } : {}),
+                          ...(options.transform.height ? { height: options.transform.height } : {}),
+                      }
                     : null,
             });
         } else {
@@ -396,14 +405,14 @@ export default {
             download: options.download ? options.download.filename || true : false,
             ...(options.transform
                 ? {
-                    transform: {
-                        ...(options.transform.format ? { format: options.transform.format } : {}),
-                        ...(options.transform.quality ? { quality: options.transform.quality } : {}),
-                        ...(options.transform.resize ? { resize: options.transform.resize } : {}),
-                        ...(options.transform.width ? { width: options.transform.width } : {}),
-                        ...(options.transform.height ? { height: options.transform.height } : {}),
-                    },
-                }
+                      transform: {
+                          ...(options.transform.format ? { format: options.transform.format } : {}),
+                          ...(options.transform.quality ? { quality: options.transform.quality } : {}),
+                          ...(options.transform.resize ? { resize: options.transform.resize } : {}),
+                          ...(options.transform.width ? { width: options.transform.width } : {}),
+                          ...(options.transform.height ? { height: options.transform.height } : {}),
+                      },
+                  }
                 : {}),
         });
         if (error) throw new Error(error.message, { cause: error });
@@ -572,10 +581,10 @@ const applyModifiers = (query, { select, order, limit, range, single, maybeSingl
             select.mode === 'minimal'
                 ? ''
                 : select.mode === 'guided'
-                    ? select?.fields.length
-                        ? select.fields.join(', ')
-                        : '*'
-                    : select?.fieldsAdvanced
+                ? select?.fields.length
+                    ? select.fields.join(', ')
+                    : '*'
+                : select?.fieldsAdvanced
         );
     }
 

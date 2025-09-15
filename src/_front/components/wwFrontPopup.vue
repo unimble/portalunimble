@@ -1,11 +1,11 @@
 <template>
-    <wwLocalContext :methods="localMethods" element-key="popup">
+    <wwLocalContext :methods="localMethods" :data="data" element-key="popup">
         <wwLibraryComponent :uid="modal.uid" is-popup></wwLibraryComponent>
     </wwLocalContext>
 </template>
 
 <script>
-import { provide } from 'vue';
+import { provide, computed } from 'vue';
 import wwLibraryComponent from './wwLibraryComponent.vue';
 import { usePopupStore } from '@/pinia/popup.js';
 
@@ -17,14 +17,15 @@ export default {
             type: Object,
             required: true,
         },
+        stacked: { type: Boolean, default: false },
     },
     setup(props) {
-        const modalsStore = usePopupStore();
+        const popupStore = usePopupStore();
         const localMethods = {
             close: {
                 description: 'Close the popup',
                 method(data) {
-                    modalsStore.close(props.modal?.uid, data);
+                    popupStore.close(props.modal?.uid, data);
                 },
                 editor: {
                     label: 'Close this popup instance',
@@ -53,10 +54,21 @@ export default {
                 },
             },
         };
+        const data = computed(() => {
+            const instances = Object.values(popupStore.instances).filter(
+                m => m.libraryComponentBaseId === props.modal?.libraryComponentBaseId
+            );
+            return {
+                instancesCount: instances.length,
+                index: instances.findIndex(m => m.uid === props.modal?.uid),
+                totalCount: Object.keys(popupStore.instances).length,
+            };
+        });
 
         provide('dragZoneId', props.modal?.uid);
+        provide('_wwPopupStacked', props.stacked);
 
-        return { localMethods };
+        return { localMethods, data };
     },
 };
 </script>

@@ -18,6 +18,7 @@ import { textOptions } from './src/settings';
 
 export default {
     editor: {
+        deprecated: 'Use a rich text from the Elements panel instead of this one.',
         label: {
             en: 'Rich text',
         },
@@ -84,6 +85,8 @@ export default {
                 'parameterImage',
                 'parameterCodeBlock',
                 'parameterQuote',
+                'parameterInlineMath',
+                'parameterBlockMath',
                 'parameterUndo',
                 'parameterRedo',
             ],
@@ -183,6 +186,26 @@ export default {
         { label: 'Toggle Check List', action: 'toggleTaskList' },
         { label: 'Toggle Code Block', action: 'toggleCodeBlock' },
         { label: 'Toggle Blockquote', action: 'toggleBlockquote' },
+        {
+            label: 'Insert Inline Math',
+            action: 'insertInlineMath',
+            args: [
+                {
+                    name: 'Inline LaTeX Expression',
+                    type: 'Text',
+                },
+            ],
+        },
+        {
+            label: 'Insert Block Math',
+            action: 'insertBlockMath',
+            args: [
+                {
+                    name: 'Block LaTeX Expression',
+                    type: 'Text',
+                },
+            ],
+        },
         { label: 'Undo', action: 'undo' },
         { label: 'Redo', action: 'redo' },
         // Table
@@ -1522,6 +1545,50 @@ export default {
             },
             defaultValue: true,
         },
+        parameterInlineMath: {
+            section: 'settings',
+            hidden: content => content.customMenu,
+            label: {
+                en: 'Inline math',
+            },
+            type: 'TextRadioGroup',
+            options: {
+                choices: [
+                    {
+                        value: true,
+                        label: 'Show',
+                    },
+                    {
+                        value: false,
+                        default: true,
+                        label: 'Hide',
+                    },
+                ],
+            },
+            defaultValue: false,
+        },
+        parameterBlockMath: {
+            section: 'settings',
+            hidden: content => content.customMenu,
+            label: {
+                en: 'Block math',
+            },
+            type: 'TextRadioGroup',
+            options: {
+                choices: [
+                    {
+                        value: true,
+                        label: 'Show',
+                    },
+                    {
+                        value: false,
+                        default: true,
+                        label: 'Hide',
+                    },
+                ],
+            },
+            defaultValue: false,
+        },
         parameterUndo: {
             section: 'settings',
             hidden: content => content.customMenu,
@@ -1566,7 +1633,6 @@ export default {
             },
             defaultValue: true,
         },
-
         fieldName: {
             label: 'Field name',
             section: 'settings',

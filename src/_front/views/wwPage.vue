@@ -24,7 +24,10 @@
                 :section-id="activeLinkPopup.sectionId"
             />
         </transition>
-        <wwFrontPopup v-for="(modal, uid) in modalsStore.instances" :key="uid" :modal="modal" />
+        <wwElement v-for="(popups, uid) in popupStore.stackedPopupUids" :key="uid" :uid="uid" no-interaction>
+            <wwFrontPopup v-for="pUid in popups" :key="pUid" :modal="popupStore.instances[pUid]" stacked />
+        </wwElement>
+        <wwFrontPopup v-for="uid in popupStore.singlePopupUids" :key="uid" :modal="popupStore.instances[uid]" />
     </div>
 </template>
 
@@ -49,7 +52,7 @@ export default {
     setup() {
         const store = useStore();
         const page = computed(() => store.getters['websiteData/getPage'] || { id: null, meta: {} });
-        const modalsStore = usePopupStore();
+        const popupStore = usePopupStore();
 
         const designInfo = computed(() => store.getters['websiteData/getDesignInfo'] || {});
 
@@ -70,7 +73,7 @@ export default {
                 x: 0,
                 y: 0,
             },
-            modalsStore,
+            popupStore,
             /* wwFront:start */
             sections: computed(() => {
                 const sections = store.getters['websiteData/getSections'];

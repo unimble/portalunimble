@@ -142,6 +142,7 @@ export default {
     },
     options: {
         displayAllowedValues: ['flex', 'inline-flex', 'block'],
+        icons: ['lucide/trash'],
     },
     triggerEvents: [
         {

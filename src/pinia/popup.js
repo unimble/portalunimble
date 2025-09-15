@@ -58,5 +58,32 @@ export const usePopupStore = defineStore('popups', () => {
         close,
         closeAll,
         instances,
+        stackedPopupUids: computed(() => {
+            const stacks = {};
+            Object.values(instances.value).forEach(popup => {
+                const isStacked =
+                    wwLib.$store.getters['libraries/getComponents'][popup.libraryComponentBaseId]?.configuration?.popup
+                        ?.isStacked &&
+                    wwLib.$store.getters['libraries/getComponents'][popup.libraryComponentBaseId]?.configuration?.popup
+                        ?.containerUid;
+                if (!isStacked) return;
+                const containerUid =
+                    wwLib.$store.getters['libraries/getComponents'][popup.libraryComponentBaseId]?.configuration?.popup
+                        ?.containerUid;
+                if (!stacks[containerUid]) {
+                    stacks[containerUid] = [];
+                }
+                stacks[containerUid].push(popup.uid);
+            });
+
+            return stacks;
+        }),
+        singlePopupUids: computed(() => {
+            return Object.keys(instances.value).filter(uid => {
+                const popup = instances.value[uid];
+                return !wwLib.$store.getters['libraries/getComponents'][popup.libraryComponentBaseId]?.configuration
+                    ?.popup?.isStacked;
+            });
+        }),
      };
 });
