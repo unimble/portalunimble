@@ -5,6 +5,7 @@ import * as service from "../service/TipoDeDado.ts";
 import * as MetaDadosService from "../service/MetaDados.ts";
 
 import { updateAllByTeamId } from "../service/Item.ts";
+import { inviteVerify as inviteVerifyLoader, getEquipe as getEquipeLoader, getAllForms, getMetaDadosAll } from "../service/loader.ts";
 import { getColaboradorByUserId, getColaboradorByUserIdExpand, getColaboradorByUserIdExpandIn, getColaboradorByUsuario } from "../../cliente/service/Colaborador.ts";
 import { getEmpresaByColaboradorId, getEmpresaById } from "../../cliente/service/Empresa.ts";
 import {
@@ -25,6 +26,7 @@ import {
 } from "../../cliente/service/Equipe.ts";
 import { addConvite, getConviteByEquipe, removeByEquipe, removeByEmail, getConviteByEmail } from "../../cliente/service/Convites.ts";
 import { getUsuarioByEmail } from "../../cliente/service/Usuario.ts";
+import { registerUser } from "../../cliente/service/User.ts";
 
 export const testeEnv = async (params, body, user) => {
     const sendEmail = await Email.send(
@@ -55,6 +57,73 @@ export const getHomeData = async (params, body, user) => {
         urgencia: empresa[0].urgencia,
         profile: Colaborador.usuario.profile
     });
+}
+
+export const getPageInfo = async (params: any, body: any, user: any, headers: any, query:any) => {
+    const { type, page } = params;
+
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    await inviteVerifyLoader(Colaborador);
+
+    const [userData, equipeData, formsData] = await Promise.all([
+        registerUser(user),
+        getEquipeLoader(Colaborador),
+        getAllForms()
+    ]);
+
+
+    let respObj: any = {
+        user: userData.data,
+        equipe: equipeData.data,
+        forms: formsData.data
+    };
+
+    const opt = page.split('?')[0];
+
+    if (opt == "metas") {
+        const [dados, ciclos] = await Promise.all([
+            getMetaDadosAll(Colaborador, "Resultados", '', query, headers),
+            getMetaDadosAll(Colaborador, "Ciclo", '', null, headers)
+        ]);
+
+        respObj = { ...respObj, itens: dados.data, ciclos: ciclos.data }
+    }
+
+    if (opt == "atas") {
+        const [dados] = await Promise.all([
+            getMetaDadosAll(Colaborador, "Atas", '', query, headers),
+        ]);
+
+        respObj = { ...respObj, itens: dados.data}
+    }
+
+    if (opt == "processos") {
+        const [dados] = await Promise.all([
+            getMetaDadosAll(Colaborador, "Processos", '', query, headers),
+        ]);
+
+        respObj = { ...respObj, itens: dados.data}
+    }
+
+    if (opt == "projetos") {
+        const [dados] = await Promise.all([
+            getMetaDadosAll(Colaborador, "Projeto", '', query, headers),
+        ]);
+
+        respObj = { ...respObj, itens: dados.data}
+    }
+
+    if (opt == "tarefas") {
+        const [dados] = await Promise.all([
+            getMetaDadosAll(Colaborador, "Tarefas", '', query, headers),
+        ]);
+
+        respObj = { ...respObj, itens: dados.data}
+    }
+
+    return response(respObj);
 }
 
 export const getEquipe = async (params, body, user, headers, query) => {
@@ -88,38 +157,6 @@ export const getEquipe = async (params, body, user, headers, query) => {
 
     return response(obj);
 };
-
-// export const getEquipeTemp = async (params, body, user, headers, query) => {
-//     const { id } = params;
-
-//     const Colaborador = await getColaboradorByUserIdExpand(user.id);
-//     if (!Colaborador) return response(null, true, `Colaborador não existe`);
-
-//     const equipes = await getEquipesColaboradorIsIn([Colaborador.id], {
-//         perPage: query?.perPage,
-//         offset: query?.offset
-//     });
-
-//     const equipesCount = await getEquipesColaboradorIsInTotal([Colaborador.id]);
-//     if (!equipes) return response(null, true, `Equipe não existe`);
-
-//     const obj = await Promise.all(
-//         equipes.map(async (equipe) => {
-//             const users = await getColaboradorByUserIdExpandIn(equipe.colaboradores);
-//             return {
-//                 id: equipe.id,
-//                 equipe: equipe.nome,
-//                 criador: equipe.criador_equipe,
-//                 empresa: equipe.empresa,
-//                 users
-//             };
-//         })
-//     );
-
-//     obj.sort((a, b) => a.equipe.localeCompare(b.equipe, 'pt', { sensitivity: 'base' }));
-
-//     return response({ equipes: obj, equipesCount });
-// };
 
 export const getEquipeMembros = async (params, body, user) => {
     const { id } = params;

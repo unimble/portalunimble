@@ -1,5 +1,7 @@
 import { nanoid } from "https://deno.land/x/nanoid/mod.ts";
 
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+
 import { supaCli, supa } from "./supaClient.ts";
 import routes from "./routes.ts";
 
@@ -19,6 +21,17 @@ export function createResponse(body: any, status = 200, headers = {}) {
         status: status,
     });
 }
+
+export function createPDFResponse(content, fileName, headers = {}) {
+    return new Response(content, {
+        headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': 'attachment; filename=' + fileName + '.pdf',
+            ...headers,
+        }
+    });
+}
 //Auth
 export const verifyUserIntegrity = async (headers) => {
     const token = getAuth(headers);
@@ -33,9 +46,50 @@ export const verifyUserIntegrity = async (headers) => {
     return { user: data.user, token };
 }
 
-export const getNanoId = () =>{
+export const getNanoId = () => {
     return nanoid();
 }
+
+export const generatePDF = async (pdfContent) => {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595, 842]);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    page.drawText("Unimble", {
+        x: 50, y: 750, size: 20, font: fontBold, color: rgb(0, 0.53, 0.71),
+    });
+
+    page.drawText("Processo #123", {
+        x: 400, y: 750, size: 16, font: fontBold,
+    });
+
+    page.drawText("Equipe: Equipe Alfa", { x: 50, y: 700, size: 12, font });
+    page.drawText("Responsável: João Silva", { x: 50, y: 680, size: 12, font });
+    page.drawText("Data: 12/09/2025", { x: 50, y: 660, size: 12, font });
+
+    page.drawRectangle({ x: 50, y: 640, width: 500, height: 1, color: rgb(0.8, 0.8, 0.8) });
+
+    const conteudo = stripHtml(pdfContent).split("\n");
+    let y = 600;
+    conteudo.forEach((linha) => {
+        page.drawText(sanitizeText(linha), { x: 50, y, size: 12, font });
+        y -= 20;
+    });
+
+    const pdfBytes = await pdfDoc.save();
+
+    return pdfBytes;
+}
+
+export const stripHtml = (richText: string) => {
+    return richText.replace(/<[^>]+>/g, "");
+}
+
+export const sanitizeText = (richText: string) => {
+  return richText.replace(/[^\x20-\xFF]/g, "");
+}
+
 export const getAuth = (headers) => {
     let jwt = Object.fromEntries(headers).authorization;
     jwt = jwt.split(" ");
@@ -94,6 +148,10 @@ export const isNumber = (target) => {
 
 export const response = (data: any = null, error = false, msg = "Ops ocorreu um erro inesperado!", code = "") => {
     return { error, msg, code, data };
+}
+
+export const responsePdf = (content = null, fileName = "", error = false, msg: any = "Ops ocorreu um erro inesperado!") => {
+    return { content, fileName, error, msg };
 }
 
 export const parseBase64 = (base64String) => {

@@ -8,6 +8,7 @@ import * as User from "../cliente/controllers/User.ts";
 import * as Equipe from "../cliente/controllers/Equipe.ts";
 import * as Empresa from "../cliente/controllers/Empresa.ts";
 import * as Permissao from "../cliente/controllers/Permissao.ts";
+import * as PDF from "../print/controllers/Pdf.ts";
 
 export default {
     get: [
@@ -36,7 +37,9 @@ export default {
         //Pagina principal
         { route: "/teste", function: Principal.testeEnv },
         { route: "/unimble/me", function: Principal.getHomeData },
+        { route: "/unimble/loader/:type/:page", function: Principal.getPageInfo },
         { route: "/unimble/equipe", function: Principal.getEquipe },
+        { route: "/unimble/print/processos/:item", function: PDF.printProccessById },
         // { route: "/unimble/equipe/:item", function: Principal.getEquipeTemp },
         { route: "/unimble/equipe/membros/:id", function: Principal.getEquipeMembros },
         { route: "/unimble/equipe/pendente/:id", function: Principal.getEquipePendente },
