@@ -46,6 +46,8 @@ export default {
                 'chipIconUnselect',
                 'chipIconColor',
                 'chipIconSize',
+                'chipImageSize',
+                'chipImageRadius',
             ],
             [
                 'triggerStylesTitle',
@@ -65,6 +67,8 @@ export default {
                 'triggerIconOpen',
                 'triggerIconSize',
                 'triggerIconColor',
+                'triggerImageSize',
+                'triggerImageRadius',
             ],
             [
                 'dropdownStylesTitle',
@@ -104,6 +108,8 @@ export default {
                 'optionIcon',
                 'optionIconSize',
                 'optionIconColor',
+                'optionImageSize',
+                'optionImageRadius',
             ],
             [
                 'emptyStateStylesTitle',
@@ -140,8 +146,11 @@ export default {
         customSettingsPropertiesOrder: [
             'forceOpenInEditor',
             'showEmptyStateInEditor',
+            'optionType',
             'choices',
             'mappingLabel',
+            'mappingIcon',
+            'mappingImage',
             'mappingValue',
             'mappingDisabled',
             'initValueSingle',
@@ -243,6 +252,22 @@ export default {
     ],
     properties: {
         // >>>>>>>>>>> SELECT <<<<<<<<<<
+        optionType: {
+            label: { en: 'Option type' },
+            type: 'TextSelect',
+            options: {
+                options: [
+                    { value: 'text', label: 'Text' },
+                    { value: 'iconText', label: 'Icon + Text' },
+                    { value: 'imageText', label: 'Image + Text' },
+                ],
+            },
+            defaultValue: 'text',
+            bindable: true,
+            responsive: true,
+            states: true,
+            section: 'settings',
+        },
         choices: {
             label: {
                 en: 'Options',
@@ -269,6 +294,32 @@ export default {
                 code: "context.mapping?.['label'] || context.mapping",
             },
             section: 'settings',
+        },
+        mappingIcon: {
+            label: 'Icon per item',
+            type: 'Formula',
+            options: content => ({
+                template: Array.isArray(content.choices) ? content.choices[0] : null,
+            }),
+            defaultValue: {
+                type: 'f',
+                code: "context.mapping?.['icon'] || null",
+            },
+            section: 'settings',
+            hidden: content => content.optionType !== 'iconText',
+        },
+        mappingImage: {
+            label: 'Image per item',
+            type: 'Formula',
+            options: content => ({
+                template: Array.isArray(content.choices) ? content.choices[0] : null,
+            }),
+            defaultValue: {
+                type: 'f',
+                code: "context.mapping?.['image'] || null",
+            },
+            section: 'settings',
+            hidden: content => content.optionType !== 'imageText',
         },
         mappingValue: {
             label: 'Value per item',
@@ -606,8 +657,7 @@ export default {
             bindable: true,
             responsive: true,
             propertyHelp: {
-                tooltip:
-                    'This should be disabled in some edge cases like in popups, datagrid, etc.',
+                tooltip: 'This should be disabled in some edge cases like in popups, datagrid, etc.',
             },
             bindingValidation: {
                 type: 'boolean',
@@ -1162,6 +1212,44 @@ export default {
             defaultValue: '14px',
             hidden: content => content.selectType == 'single',
         },
+        chipImageSize: {
+            type: 'Length',
+            label: {
+                en: 'Image size',
+            },
+            options: {
+                unitChoices: [{ value: 'px', label: 'px', min: 1, max: 500 }],
+                noRange: true,
+                useVar: true,
+            },
+            bindable: true,
+            responsive: true,
+            states: true,
+            classes: true,
+            defaultValue: '14px',
+            hidden: content => content.selectType == 'single' || content.optionType !== 'imageText',
+        },
+        chipImageRadius: {
+            type: 'Spacing',
+            label: {
+                en: 'Image radius',
+            },
+            options: {
+                unitChoices: [
+                    { value: 'px', label: 'px', min: 1, max: 500 },
+                    { value: '%', label: '%', min: 0, max: 100 },
+                ],
+                isCorner: true,
+                noRange: true,
+                useVar: true,
+            },
+            bindable: true,
+            responsive: true,
+            states: true,
+            classes: true,
+            defaultValue: '4px',
+            hidden: content => content.selectType == 'single' || content.optionType !== 'imageText',
+        },
 
         /* ------------------------------------
             TRIGGER STYLES
@@ -1396,6 +1484,44 @@ export default {
             states: true,
             classes: true,
             defaultValue: '16px',
+        },
+        triggerImageSize: {
+            type: 'Length',
+            label: {
+                en: 'Image size',
+            },
+            options: {
+                unitChoices: [{ value: 'px', label: 'px', min: 1, max: 500 }],
+                noRange: true,
+                useVar: true,
+            },
+            bindable: true,
+            responsive: true,
+            states: true,
+            classes: true,
+            defaultValue: '16px',
+            hidden: content => content.selectType === 'multiple' || content.optionType !== 'imageText',
+        },
+        triggerImageRadius: {
+            type: 'Spacing',
+            label: {
+                en: 'Image radius',
+            },
+            options: {
+                unitChoices: [
+                    { value: 'px', label: 'px', min: 1, max: 500 },
+                    { value: '%', label: '%', min: 0, max: 100 },
+                ],
+                isCorner: true,
+                noRange: true,
+                useVar: true,
+            },
+            bindable: true,
+            responsive: true,
+            states: true,
+            classes: true,
+            defaultValue: '4px',
+            hidden: content => content.selectType === 'multiple' || content.optionType !== 'imageText',
         },
 
         /* ------------------------------------
@@ -1830,6 +1956,44 @@ export default {
             states: true,
             classes: true,
             defaultValue: '12px',
+        },
+        optionImageSize: {
+            type: 'Length',
+            label: {
+                en: 'Image size',
+            },
+            options: {
+                unitChoices: [{ value: 'px', label: 'px', min: 1, max: 500 }],
+                noRange: true,
+                useVar: true,
+            },
+            bindable: true,
+            responsive: true,
+            states: true,
+            classes: true,
+            defaultValue: '16px',
+            hidden: content => content.optionType !== 'imageText',
+        },
+        optionImageRadius: {
+            type: 'Spacing',
+            label: {
+                en: 'Image radius',
+            },
+            options: {
+                unitChoices: [
+                    { value: 'px', label: 'px', min: 1, max: 500 },
+                    { value: '%', label: '%', min: 0, max: 100 },
+                ],
+                isCorner: true,
+                noRange: true,
+                useVar: true,
+            },
+            bindable: true,
+            responsive: true,
+            states: true,
+            classes: true,
+            defaultValue: '4px',
+            hidden: content => content.optionType !== 'imageText',
         },
 
         /* ------------------------------------

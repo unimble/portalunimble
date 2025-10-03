@@ -177,6 +177,7 @@ export default {
             validationType,
             debounceDelay,
         });
+        provide('_wwForm:submit', handleSubmit);
         provide('_wwForm:useForm', useForm);
 
         const markdown = `### Form local informations

@@ -13,7 +13,13 @@
         :aria-selected="isSelected"
         :aria-disabled="isOptionDisabled"
     >
-        <span>{{ data.label }}</span>
+        <div class="ww-select-option__content">
+            <div class="ww-select-option__media" v-if="displayIconHtml || displayImageUrl" :style="mediaWrapperStyle">
+                <div v-if="displayIconHtml" v-html="displayIconHtml" :style="mediaIconStyle" aria-hidden="true"></div>
+                <img v-else-if="displayImageUrl" :src="displayImageUrl" :style="mediaImageStyle" alt="" />
+            </div>
+            <span class="ww-select-option__text">{{ data.label }}</span>
+        </div>
         <div v-if="data.isSelected" v-html="optionIcon" :style="optionIconStyle" aria-hidden="true"></div>
     </div>
 </template>
@@ -58,7 +64,10 @@ export default {
         const activeDescendant = inject('_wwSelect:activeDescendant', ref(null));
         const isMouseDownOnOption = inject('_wwSelect:isMouseDownOnOption', ref(false));
 
+        const optionType = inject('_wwSelect:optionType', ref('text'));
         const mappingLabel = inject('_wwSelect:mappingLabel', ref(null));
+        const mappingIcon = inject('_wwSelect:mappingIcon', ref(null));
+        const mappingImage = inject('_wwSelect:mappingImage', ref(null));
         const mappingValue = inject('_wwSelect:mappingValue', ref(null));
         const mappingDisabled = inject('_wwSelect:mappingDisabled', ref(null));
 
@@ -96,19 +105,83 @@ export default {
             };
         });
 
+        // Media (icon/image) support for special option types
+        const displayIconCode = computed(() => {
+            if (optionType.value !== 'iconText') return null;
+            if (!props.localData || typeof props.localData !== 'object') return null;
+            const code = resolveMappingFormula(toValue(mappingIcon), props.localData) ?? props.localData.icon ?? null;
+            return code || null;
+        });
+
+        const displayImageUrl = computed(() => {
+            if (optionType.value !== 'imageText') return null;
+            if (!props.localData || typeof props.localData !== 'object') return null;
+            const url = resolveMappingFormula(toValue(mappingImage), props.localData) ?? props.localData.image ?? null;
+            if (!url) return null;
+            try {
+                const str = String(url);
+                if (str.startsWith('designs/')) {
+                    return `${wwLib.wwUtils.getCdnPrefix()}${str}`;
+                }
+                return str;
+            } catch (e) {
+                return null;
+            }
+        });
+
+        const displayIconHtml = ref(null);
+        watchEffect(async () => {
+            if (displayIconCode.value) {
+                displayIconHtml.value = (await getIcon(displayIconCode.value)) || null;
+            } else {
+                displayIconHtml.value = null;
+            }
+        });
+
+        const mediaIconStyle = computed(() => {
+            return {
+                width: props.content.optionIconSize,
+                color: props.content.optionFontColor,
+                display: 'flex',
+                'align-items': 'center',
+                'justify-content': 'center',
+                'pointer-events': 'none',
+                'margin-right': '8px',
+            };
+        });
+
+        const mediaImageStyle = computed(() => {
+            return {
+                width: props.content.optionImageSize || props.content.optionIconSize,
+                height: props.content.optionImageSize || props.content.optionIconSize,
+                'object-fit': 'cover',
+            };
+        });
+
+        const mediaWrapperStyle = computed(() => {
+            return displayImageUrl.value
+                ? {
+                      'border-radius': props.content.optionImageRadius || '4px',
+                      overflow: 'hidden',
+                      'margin-right': '8px',
+                  }
+                : {};
+        });
+
         const label = computed(() => {
             // Check if this is a wrapped primitive from OptionsList (has only 'value' and 'id' properties)
-            const isWrappedPrimitive = props.localData && 
-                                     typeof props.localData === 'object' && 
-                                     'value' in props.localData && 
-                                     'id' in props.localData &&
-                                     Object.keys(props.localData).length === 2;
-            
+            const isWrappedPrimitive =
+                props.localData &&
+                typeof props.localData === 'object' &&
+                'value' in props.localData &&
+                'id' in props.localData &&
+                Object.keys(props.localData).length === 2;
+
             if (isWrappedPrimitive) {
                 // For wrapped primitives, use the inner value as the label
                 return props.localData.value;
             }
-            
+
             // Handle true primitive values (strings, numbers) vs objects
             const isPrimitive = typeof props.localData !== 'object' || props.localData === null;
 
@@ -117,23 +190,31 @@ export default {
                 return props.localData;
             } else {
                 // For objects, use the mapping formula
-                return resolveMappingFormula(toValue(mappingLabel), props.localData) ?? props.content.label ?? props.localData;
+                // For all option types, label is mappingLabel (or fallbacks)
+                return (
+                    resolveMappingFormula(toValue(mappingLabel), props.localData) ||
+                    props.localData?.label ||
+                    props.localData?.text ||
+                    props.content.label ||
+                    props.localData
+                );
             }
         });
 
         const value = computed(() => {
             // Check if this is a wrapped primitive from OptionsList (has only 'value' and 'id' properties)
-            const isWrappedPrimitive = props.localData && 
-                                     typeof props.localData === 'object' && 
-                                     'value' in props.localData && 
-                                     'id' in props.localData &&
-                                     Object.keys(props.localData).length === 2;
-            
+            const isWrappedPrimitive =
+                props.localData &&
+                typeof props.localData === 'object' &&
+                'value' in props.localData &&
+                'id' in props.localData &&
+                Object.keys(props.localData).length === 2;
+
             if (isWrappedPrimitive) {
                 // For wrapped primitives, use the inner value
                 return props.localData.value;
             }
-            
+
             // Handle true primitive values (strings, numbers) vs objects
             const isPrimitive = typeof props.localData !== 'object' || props.localData === null;
 
@@ -142,7 +223,11 @@ export default {
                 return props.localData;
             } else {
                 // For objects, use the mapping formula
-                return resolveMappingFormula(toValue(mappingValue), props.localData) ?? props.content.value ?? props.localData;
+                return (
+                    resolveMappingFormula(toValue(mappingValue), props.localData) ??
+                    props.content.value ??
+                    props.localData
+                );
             }
         });
         const isOptionDisabled = computed(() => resolveMappingFormula(toValue(mappingDisabled), props.localData));
@@ -188,7 +273,7 @@ export default {
             }
         };
 
-        const handleMouseDown = (event) => {
+        const handleMouseDown = event => {
             // Track mousedown to prevent blur on the select element
             isMouseDownOnOption.value = true;
         };
@@ -292,6 +377,11 @@ export default {
             optionStyles,
             optionIcon,
             optionIconStyle,
+            displayIconHtml,
+            mediaIconStyle,
+            displayImageUrl,
+            mediaImageStyle,
+            mediaWrapperStyle,
             contextMethods,
             data,
             contextMarkdown,
@@ -308,6 +398,7 @@ export default {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     &:hover {
         background-color: var(--ww-select-option-bg-color-hover) !important;
     }
@@ -318,5 +409,23 @@ export default {
         cursor: not-allowed;
         opacity: 0.5;
     }
+}
+
+.ww-select-option__content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+}
+
+.ww-select-option__media {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.ww-select-option__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 </style>

@@ -200,15 +200,15 @@ function mapFilterSortData(rawValue, filter, sort, __wwmap, context, event, args
     let value = rawValue;
     if (Array.isArray(value)) {
         let data = value; // TODO: remove this when no side effects are expected
-        if (__wwmap) data = mapData(value, __wwmap, context, event, args);
         if (filter) data = filterData(data, filter, context, event, args);
         if (sort) data = sortData([...data], sort, context, event, args);
+        if (__wwmap) data = mapData(data, __wwmap, context, event, args);
         return { value: data, rawValue };
     } else if (isObject(value) && Array.isArray(value.data) && value.type === 'collection') {
         let data = value.data; // TODO: remove this when no side effects are expected
-        if (__wwmap) data = mapData(value.data, __wwmap, context, event, args);
         if (filter) data = filterData(data, filter, context, event, args);
         if (sort) data = sortData([...data], sort, context, event, args);
+        if (__wwmap) data = mapData(data, __wwmap, context, event, args);
         return { value: { ...value, data, total: data.length }, rawValue };
     }
     return { value, rawValue };

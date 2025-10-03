@@ -98,7 +98,7 @@ export const useVariablesStore = defineStore('variables', () => {
         }
     }
 
-    function setValue(variableId, value, { ignoreQuery, path, index, arrayUpdateType, workflowContext } = {}) {
+    function setValue(variableId, value, { ignoreQuery, path, index, arrayUpdateType, workflowContext, silent } = {}) {
         const configuration = this.getConfiguration(variableId);
         if (!configuration) return;
         if (typeof value === 'string') {
@@ -170,11 +170,12 @@ export const useVariablesStore = defineStore('variables', () => {
         if (configuration.type === 'object' && path) {
             this.values[variableId] = this.values[variableId] || {};
             set(this.values[variableId], path, value);
-            wwLib.logStore.verbose(`Variable _wwVariable(${variableId}) update`, {
-                preview: this.values[variableId],
-                workflowContext,
-                type: workflowContext ? 'action' : null,
-            });
+            if (!silent)
+                wwLib.logStore.verbose(`Variable _wwVariable(${variableId}) update`, {
+                    preview: this.values[variableId],
+                    workflowContext,
+                    type: workflowContext ? 'action' : null,
+                });
         } else if (configuration.type === 'array' && arrayUpdateType) {
             this.values[variableId] = this.values[variableId] || [];
             index = index || 0;
@@ -185,79 +186,90 @@ export const useVariablesStore = defineStore('variables', () => {
                         finalPath = `${finalPath}.${path}`;
                     }
                     set(this.values[variableId], finalPath, value);
-                    wwLib.logStore.verbose(`Updating partially array variable _wwVariable(${variableId}) `, {
-                        preview: value,
-                        workflowContext,
-                        type: workflowContext ? 'action' : null,
-                    });
+                    if (!silent)
+                        wwLib.logStore.verbose(`Updating partially array variable _wwVariable(${variableId}) `, {
+                            preview: value,
+                            workflowContext,
+                            type: workflowContext ? 'action' : null,
+                        });
                     break;
                 }
                 case 'delete':
                     this.values[variableId].splice(index, 1);
-                    wwLib.logStore.verbose(`Deleting item ${index} from array _wwVariable(${variableId})`, {
-                        workflowContext,
-                        type: workflowContext ? 'action' : null,
-                    });
+                    if (!silent)
+                        wwLib.logStore.verbose(`Deleting item ${index} from array _wwVariable(${variableId})`, {
+                            workflowContext,
+                            type: workflowContext ? 'action' : null,
+                        });
                     break;
                 case 'insert':
                     this.values[variableId].splice(index, 0, value);
-                    wwLib.logStore.verbose(
-                        `Inserting value into array variable at index ${index} _wwVariable(${variableId}) `,
-                        {
-                            preview: value,
-                            workflowContext,
-                            type: workflowContext ? 'action' : null,
-                        }
-                    );
+                    if (!silent)
+                        wwLib.logStore.verbose(
+                            `Inserting value into array variable at index ${index} _wwVariable(${variableId}) `,
+                            {
+                                preview: value,
+                                workflowContext,
+                                type: workflowContext ? 'action' : null,
+                            }
+                        );
                     break;
                 case 'unshift':
                     this.values[variableId].unshift(value);
-                    wwLib.logStore.verbose(`Removing first element from array variable _wwVariable(${variableId}) `, {
-                        workflowContext,
-                        type: workflowContext ? 'action' : null,
-                    });
+                    if (!silent)
+                        wwLib.logStore.verbose(
+                            `Removing first element from array variable _wwVariable(${variableId}) `,
+                            {
+                                workflowContext,
+                                type: workflowContext ? 'action' : null,
+                            }
+                        );
                     break;
                 case 'push':
                     this.values[variableId].push(value);
-                    wwLib.logStore.verbose(
-                        `Adding value at the end of the array variable _wwVariable(${variableId}) `,
-                        {
-                            preview: value,
-                            workflowContext,
-                            type: workflowContext ? 'action' : null,
-                        }
-                    );
+                    if (!silent)
+                        wwLib.logStore.verbose(
+                            `Adding value at the end of the array variable _wwVariable(${variableId}) `,
+                            {
+                                preview: value,
+                                workflowContext,
+                                type: workflowContext ? 'action' : null,
+                            }
+                        );
                     break;
                 case 'shift':
                     this.values[variableId].shift(value);
-                    wwLib.logStore.verbose(
-                        `Adding value at the start of the array variable _wwVariable(${variableId}) `,
-                        {
-                            preview: value,
-                            workflowContext,
-                            type: workflowContext ? 'action' : null,
-                        }
-                    );
+                    if (!silent)
+                        wwLib.logStore.verbose(
+                            `Adding value at the start of the array variable _wwVariable(${variableId}) `,
+                            {
+                                preview: value,
+                                workflowContext,
+                                type: workflowContext ? 'action' : null,
+                            }
+                        );
                     break;
                 case 'pop':
                     this.values[variableId].pop(value);
-                    wwLib.logStore.verbose(`Removing last value of the array variable _wwVariable(${variableId})`, {
-                        workflowContext,
-                        type: workflowContext ? 'action' : null,
-                    });
+                    if (!silent)
+                        wwLib.logStore.verbose(`Removing last value of the array variable _wwVariable(${variableId})`, {
+                            workflowContext,
+                            type: workflowContext ? 'action' : null,
+                        });
                     break;
             }
         } else {
             this.values[variableId] = value;
-            wwLib.logStore.verbose(`Setting value for _wwVariable(${variableId}) `, {
-                preview: _.cloneDeep(value),
-                workflowContext,
-                type: workflowContext ? 'action' : null,
-            });
+            if (!silent)
+                wwLib.logStore.verbose(`Setting value for _wwVariable(${variableId}) `, {
+                    preview: _.cloneDeep(value),
+                    workflowContext,
+                    type: workflowContext ? 'action' : null,
+                });
         }
 
         if (configuration.isLocalStorage && window.localStorage) {
-            wwLib.logStore.verbose(`Updating localStorage to synchronize with _wwVariable(${variableId})`);
+            if (!silent) wwLib.logStore.verbose(`Updating localStorage to synchronize with _wwVariable(${variableId})`);
             switch (configuration.type) {
                 case 'query':
                 case 'string':
