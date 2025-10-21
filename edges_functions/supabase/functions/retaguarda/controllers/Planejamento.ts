@@ -1,4 +1,4 @@
-import { response, isNumber, arraysAreEqual } from "../../utils/utils.ts";
+import { response, isNumber, arraysAreEqual, getNanoId, isNanoid } from "../../utils/utils.ts";
 import FilterResolver from "../../utils/filtersResolve.ts";
 import * as dadoService from "../service/Dado.ts";
 import * as TipoItemService from "../service/TipoDeItem.ts";
@@ -14,6 +14,17 @@ import { getEmpresaByColaboradorId } from "../../cliente/service/Empresa.ts";
 import { verifyEquipe, verifyEquipeByUrlId, getEquipesByUrlId, getEquipesByColaboradorId } from "../../cliente/service/Equipe.ts";
 import { getUsuarioById } from "../../cliente/service/Usuario.ts";
 
+export const setNanoToItem = async () => {
+    const itens = await ItemService.getAll();
+
+    // if (error) return response(null, true, msg, code);
+
+    // for(const item of itens){
+    //     await ItemService.updateItemById({mnemonico: getNanoId()}, item.id)
+    // }
+
+    return response({ id: getNanoId(), itens });
+}
 
 export const addComentario = async (params, body, user) => {
     const { conteudo, commentId } = body;
@@ -307,7 +318,7 @@ export const addResultadoFromScratch = async (params, body, user, headers) => {
 
 export const addResultadoDuplicar = async (params, body, user, headers) => {
     const { cycleId, cycleBase, keepValue } = params;
-
+    // Cannot convert undefined or null to object - Nem criar o OKR ele cria
     const Colaborador = await getColaboradorByUserIdExpand(user.id);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
@@ -319,6 +330,7 @@ export const addResultadoDuplicar = async (params, body, user, headers) => {
     //     }
     // }
 
+    // cycleId == 5974  cycleBase = 1306
     let contextId = headers["x-context"];
 
     const nanoIdToId = await getEquipesByUrlId(contextId);
@@ -328,7 +340,7 @@ export const addResultadoDuplicar = async (params, body, user, headers) => {
     }
 
     let metaDado = await MetaDadosService.getMetaDadosSingleTemp("Resultados", Colaborador.id, "", cycleId);
-    if (metaDado.error) return response(null, true, "Não foi possivel resgatar esse metadado");
+    if (!metaDado || 'error' in metaDado || metaDado?.[0] == undefined) return response(null, true, "Não foi possivel resgatar esse metadado");
 
     let resultToCopy: any = metaDado[0].components.filter(d => d.nome === "Objetivos");
 
@@ -338,8 +350,6 @@ export const addResultadoDuplicar = async (params, body, user, headers) => {
     let objectivesIds: any = [];
 
     for (const objective of resultToCopy) {
-        const { dados } = objective;
-
         const name = objective.data["Nome"];
         const desc = objective.data["Descrição"];
 
@@ -351,20 +361,20 @@ export const addResultadoDuplicar = async (params, body, user, headers) => {
         const metasIds: any = [];
         if (metas && metas.length > 0) {
             for (const meta of metas) {
-                const ids = Object.values(meta.dataId);
+                if (meta.data) {
+                    let conteudo: any = [];
+                    Object.entries(meta.data).forEach((d: any) => {
+                        conteudo.push({ id: meta.dataId[d[0]], text: d[1], tag: d[0] });
+                    });
 
-                let conteudo: any = [];
-                Object.entries(meta.data).forEach((d: any) => {
-                    conteudo.push({ id: meta.dataId[d[0]], text: d[1], tag: d[0] });
-                });
+                    if (keepValue == "false") {
+                        conteudo = conteudo?.filter(i => i.tag != "Meta atual");
+                    }
 
-                if (keepValue == "false") {
-                    conteudo = conteudo?.filter(i => i.tag != "Meta atual");
+                    const registerMetadado: any = await MetaDadosService.registerMetadado("Meta", conteudo, user.id);
+                    if (registerMetadado.error) return response(null, true, registerMetadado.msg, registerMetadado.code);
+                    metasIds.push(registerMetadado.data.id);
                 }
-
-                const registerMetadado: any = await MetaDadosService.registerMetadado("Meta", conteudo, user.id);
-                if (registerMetadado.error) return response(null, true, registerMetadado.msg, registerMetadado.code);
-                metasIds.push(registerMetadado.data.id);
             }
         }
 
@@ -384,15 +394,12 @@ export const addResultadoDuplicar = async (params, body, user, headers) => {
         objectivesIds.push(registerObjective.data.id);
     }
 
-    const registerResultado: any = await MetaDadosService.registerMetadadoItem("Resultados", [cycleBase], user.id);
+    const registerResultado: any = await MetaDadosService.registerMetadadoItem("Resultados", [...objectivesIds, cycleBase], user.id);
     if (registerResultado.error) return response(null, true, registerResultado.msg, registerResultado.code);
 
     if (contextId != "") {
         await ItemService.updateItemById({ equipe: contextId }, registerResultado.data.id);
     }
-
-    const updateResultado = await MetaDadosService.updateMetadadoItem("Resultados", [...objectivesIds, cycleBase], user.id, registerResultado.data.id, true);
-    if (updateResultado.error) return response(null, true, updateResultado.msg, updateResultado.code);
 
     let newOKR = await MetaDadosService.getMetaDadosSingleTemp("Resultados", Colaborador.id, '', registerResultado.data.id);
     if (newOKR.error) return response(null, true, "Não foi possivel resgatar esse metadado");
@@ -519,6 +526,7 @@ export const addBlank = async (params, body, user, headers) => {
     return response({
         instanceId: registerMetadado.data.id,
         createdAt: registerMetadado.data.created_at,
+        url: registerMetadado.data.mnemonico,
         profile: getItem[0].criador,
         tipoItemName: item,
         dados: subData
@@ -651,15 +659,24 @@ export const editItem = async (params, body, user) => {
     const { item } = params;
     const { conteudo } = body;
 
-    const edited = await MetaDadosService.editMetaDado(item, conteudo);
+    let id = item;
+
+    if (isNanoid(id)) {
+        const itemByUrl = await ItemService.getItensByUrl(id);
+        if (itemByUrl?.error) return response(null, true, `Erro ao converter nanoid`);
+
+        id = itemByUrl[0].id;
+    }
+
+    const edited = await MetaDadosService.editMetaDado(id, conteudo);
 
     const Colaborador = await getColaboradorByUserIdExpand(user.id);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
-    const instance = await ItemService.getItensByItemIdExpandTipoItem(item);
+    const instance = await ItemService.getItensByItemIdExpandTipoItem(id);
     if (!instance) return response(null, true, `Colaborador não existe`);
 
-    let metaDado = await MetaDadosService.getMetaDadosSingleTemp(instance[0].item.nome, Colaborador.id, '', item);
+    let metaDado = await MetaDadosService.getMetaDadosSingleTemp(instance[0].item.nome, Colaborador.id, '', id);
     if (metaDado.error) return response(null, true, "Não foi possivel resgatar esse metadado");
 
     return response({
@@ -723,13 +740,15 @@ export const editOkr = async (params, body, user) => {
 
     let ids = JSON.parse(conteudo);
 
-    let [ metaDado ] = await MetaDadosService.getMetaDadosSingleTemp("Resultados", Colaborador.id, '', item);
+    let resultados = await MetaDadosService.getMetaDadosSingleTemp("Resultados", Colaborador.id, '', item);
 
-    let [cycleExists] = metaDado?.components.filter(item => item.nome == "Ciclo");
+    if (Colaborador?.error) return response(null, true, 'Não foi possivel editar o item');
+
+    let cycleExists = resultados?.[0]?.components?.filter(item => item.nome == "Ciclo");
 
     let overLap = false;
-    if (cycleExists && !ids.includes(cycleExists.id)) {
-        let idsNoCycle = metaDado.components.map(item => {
+    if (cycleExists && !ids.includes(cycleExists[0].id)) {
+        let idsNoCycle = resultados?.[0]?.components.map(item => {
             if (item.nome != "Ciclo") {
                 return item.id
             }
@@ -965,7 +984,7 @@ export const getMetaDadoAll = async (params, body, user, headers, query) => {
 
     return response({
         metaDado: metaDado.data,
-        total: metaDado.total
+        total: metaDado.total,
     });
 }
 
@@ -1109,6 +1128,13 @@ export const getFormEditNew = async (params, body, user, headers, query) => {
 
     if (query && 'pagination' in query) {
         pagination = JSON.parse(decodeURIComponent(query?.pagination)) ?? [];
+    }
+
+    if (isNanoid(filteredId)) {
+        const itemByUrl = await ItemService.getItensByUrl(filteredId);
+        if (itemByUrl?.error) return response(null, true, `Erro ao converter nanoid`);
+
+        filteredId = itemByUrl[0].id;
     }
 
     let form = await MetaDadosService.getMetaDadosFormEditNew(filteredId, pagination);

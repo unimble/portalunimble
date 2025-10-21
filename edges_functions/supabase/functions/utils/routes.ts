@@ -40,12 +40,13 @@ export default {
         { route: "/unimble/loader/:type/:page", function: Principal.getPageInfo },
         { route: "/unimble/equipe", function: Principal.getEquipe },
         { route: "/unimble/print/processos/:item", function: PDF.printProccessById },
-        // { route: "/unimble/equipe/:item", function: Principal.getEquipeTemp },
+        // { route: "/solveInvite", function: Principal.solveInvite },
         { route: "/unimble/equipe/membros/:id", function: Principal.getEquipeMembros },
-        { route: "/unimble/equipe/pendente/:id", function: Principal.getEquipePendente },
+        { route: "/unimble/equipe/pendente/:id", function: Principal.getEquipePendente }
     ],
     post: [
-        // { route: "/setNanoId", function: Equipe.setNano },
+        // { route: "/setNanoId", function: Planejamento.setNanoToItem },
+        { route: "/mail", function: Principal.emailTest },
         { route: "/recuperar", function: User.recuperar },
         { route: "/add-tipoitem", function: TipoDeItem.addTipoItem },
         { route: "/add-tipodedado", function: TipoDeDado.addTipoDado },
@@ -115,5 +116,6 @@ export default {
         { route: "/planejamento/guia/:item", function: Planejamento.editItem },
         { route: "/planejamento/done", function: Planejamento.finish },
         { route: "/unimble/equipe/:teamId", function: Principal.editEquipe },
+        { route: "/unimble/equipe/cargo/:equipe/:membro/:newRole", function: Principal.changeEquipeRole },
     ]
 }

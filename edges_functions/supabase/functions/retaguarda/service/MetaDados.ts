@@ -22,6 +22,7 @@ function buildMetaTree(flatData, baseID) {
             id: itemSingle.item_id,
             nome: itemSingle.item_nome,
             tipoId: itemSingle.item_base,
+            url: itemSingle?.item_url,
             data: itemSingle.data,
             dataId: itemSingle.dataid,
             createdBy: {
@@ -59,6 +60,7 @@ const recursiveTest = (flatData, parentsIds) => {
                 nome: itemSingle.item_nome,
                 tipoId: itemSingle.item_base,
                 data: itemSingle.data,
+                url: itemSingle?.item_url,
                 dataId: itemSingle.dataid,
                 createdBy: {
                     name: itemSingle.criador_nome,
@@ -86,7 +88,8 @@ export const getMetaDadosTemp = async (itemName: string, colaboradorId: number, 
         p_user_id: colaboradorId,
         p_context: (item.tipoItem.protegido === true) ? null : context || null,
         p_limit: pag?.perPage ? parseInt(pag?.perPage) : 50,
-        p_offset: pag?.offset ? parseInt(pag?.offset) : 0
+        p_offset: pag?.offset ? parseInt(pag?.offset) : 0,
+        p_filtro: null
     };
 
     let total_params = {
@@ -139,15 +142,20 @@ export const getMetaDadosAllTeams = async (itemName: string, colaboradorId: numb
 
 export const getMetaDadosSingleTemp = async (itemName: string, colaboradorId: number, kind = '', id) => {
     const item = await TipoItemService.getItemFullStructureByName(itemName);
+    const itemByUrl = await ItemService.getItensByUrl(id);
+
+    let itemId = id;
+
+    if(itemByUrl && itemByUrl.length > 0){
+        itemId = itemByUrl[0].id;
+    }
 
     if (!item) return response(null, true, `Tipo de item Inexiste`);
 
     const { data, error } = await supaCli
-        .rpc('get_flat_item_metadata_by_id', {
+        .rpc('get_metadados_id', {
             p_tipo_item_id: item.tipoItem.id,
-            p_user_id: colaboradorId,
-            p_kind: kind,
-            i_id: id
+            p_item_id: itemId
         });
 
     const metaTree = buildMetaTree(data, item.tipoItem.id);
@@ -366,6 +374,7 @@ export const getMetaDadosFormEditNew = async (id, pag = []) => {
     for (const item of data) {
         let obj = {
             instanceId: item.id,
+            url: item.mnemonico,
             tipoItemName: item.item.nome,
             createdAt: item.created_at,
             profile: item.criador,
@@ -587,7 +596,7 @@ export const updateIntancia = async (name, conteudo, id) => {
 
 export const editMetaDado = async (id, conteudo) => {
     const itemInstancias = await ItemService.getItensByItemId(id);
-    const metaInstancias = await metaInstanciaService.getMetaInstanciaByIdsExpand(itemInstancias[0].elem);
+    const metaInstancias = await metaInstanciaService.getMetaInstanciaByIdsExpand(itemInstancias[0]?.elem ?? []);
 
     const editData = (!Array.isArray(conteudo)) ? JSON.parse(conteudo) : conteudo;
 

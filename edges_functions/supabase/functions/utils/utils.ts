@@ -11,6 +11,10 @@ export const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 }
 
+export const TEAM_WORKER = 1;
+export const TEAM_ADM = 2;
+export const TEAM_OWNER = 3;
+
 export function createResponse(body: any, status = 200, headers = {}) {
     return new Response(JSON.stringify(body), {
         headers: {
@@ -48,6 +52,10 @@ export const verifyUserIntegrity = async (headers) => {
 
 export const getNanoId = () => {
     return nanoid();
+}
+
+export const isNanoid = (id: string) => {
+  return /^[A-Za-z0-9_-]{21}$/.test(id);
 }
 
 export const generatePDF = async (pdfContent) => {

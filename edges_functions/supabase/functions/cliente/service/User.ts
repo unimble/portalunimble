@@ -1,5 +1,5 @@
 import { supaCli } from "../../utils/supaClient.ts";
-import { response } from "../../utils/utils.ts";
+import { response, TEAM_OWNER } from "../../utils/utils.ts";
 
 //services
 import { getDefaultPerfil, getPerfilById, getInvitePerfil } from "./Perfil.ts";
@@ -57,7 +57,7 @@ export const registerUser = async (user) => {
         if (!addEquipe) return response(null, true, "Erro ao cadastrar Usuario");
 
         //Associating Team with colaborador
-        const colaboradorEquipe = await associateEquipeToColaborador(addColaborador.id, addEquipe[0].id);
+        const colaboradorEquipe = await associateEquipeToColaborador(addColaborador.id, addEquipe[0].id, TEAM_OWNER);
         if (!colaboradorEquipe) return response(null, true, "Erro ao cadastrar Usuario");
 
         return response({
@@ -92,6 +92,8 @@ export const registerUser = async (user) => {
         const colaboradorEquipe = await associateEquipeToColaborador(addColaborador.id, verifyInvite.data[0].equipe);
         if (!colaboradorEquipe) return response(null, true, "Erro ao cadastrar Usuario");
 
+        await removeByEmail(user_metadata.email);
+
         const { data } = await fetchAllUserData(id);
         return response(data);
     }
@@ -120,13 +122,9 @@ export const fetchAllUserData = async (id) => {
     }
 }
 
-export const recoveryPassword = async (email, senha) => {
-    const alreadyExists = await getColaboradorByEmail(email);
-
-    if (!alreadyExists) return response(null, true, "Usuario com esse e-mail não existe");
-
+export const recoveryPassword = async (userId, senha) => {
     const { data, error } = await supaCli.auth.admin.updateUserById(
-        alreadyExists.user_id,
+        userId,
         { password: senha }
     )
 

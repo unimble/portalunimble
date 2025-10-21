@@ -1,5 +1,5 @@
 import { supaCli } from "../../utils/supaClient.ts";
-import { response, getNanoId } from "../../utils/utils.ts";
+import { response, getNanoId, TEAM_WORKER } from "../../utils/utils.ts";
 
 export const registerEquipe = async (name, colaboradorId, empresaId) => {
     const { data, error } = await supaCli.from("Equipe").insert([{ empresa: empresaId, nome: name, colaboradores: [colaboradorId], criador_equipe: colaboradorId, mnemonico:getNanoId() }]).select("*");
@@ -29,8 +29,14 @@ export const updateEquipeMember = async (memberId, equipeId) => {
     return true;
 }
 
-export const associateEquipeToColaborador = async (colaboradorId, equipeId) => {
-    const { data, error } = await supaCli.from("ColaboradorEquipes").insert([{ colaborador: colaboradorId, equipe: equipeId }]).select("*");
+export const updateEquipeToColaborador = async (colId, equipeId, privilegio) => {
+    await supaCli.from("ColaboradorEquipes").update({ privilegio}).eq("equipe", equipeId).eq("colaborador", colId);
+
+    return true;
+}
+
+export const associateEquipeToColaborador = async (colaboradorId, equipeId, privilegio = TEAM_WORKER) => {
+    const { data, error } = await supaCli.from("ColaboradorEquipes").insert([{ colaborador: colaboradorId, equipe: equipeId, privilegio }]).select("*");
 
     if (error != null) return false;
 
@@ -43,7 +49,8 @@ export const getmembros = async (equipe) => {
         colaborador(
             id,
             usuario (
-                nome
+                nome, 
+                profile
             ),
             perfil (
                 nome
@@ -53,7 +60,8 @@ export const getmembros = async (equipe) => {
             id,
             nome,
             criador_equipe
-        )
+        ),
+        privilegio
     `).eq("equipe", equipe);
 
     if (error != null) return false;
@@ -83,6 +91,14 @@ export const getAllAssociated = async (equipe) => {
     if (error != null) return false;
 
     return data;
+}
+
+export const getUserPrevilege = async (equipe, colId) => {
+    const { data, error } = await supaCli.from("ColaboradorEquipes").select("*").eq("equipe", equipe).eq("colaborador", colId);
+
+    if (error != null) return false;
+
+    return data[0];
 }
 
 export const verifyEquipe = async (col, equipe) => {

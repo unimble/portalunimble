@@ -1,15 +1,11 @@
-import { response, isNumber } from "../../utils/utils.ts";
+import { response, isNumber, TEAM_OWNER, TEAM_ADM, TEAM_WORKER } from "../../utils/utils.ts";
 import Email from "../../utils/email.ts";
-import * as service from "../service/TipoDeDado.ts";
-
-import * as MetaDadosService from "../service/MetaDados.ts";
 
 import { updateAllByTeamId } from "../service/Item.ts";
 import { inviteVerify as inviteVerifyLoader, getEquipe as getEquipeLoader, getAllForms, getMetaDadosAll } from "../service/loader.ts";
-import { getColaboradorByUserId, getColaboradorByUserIdExpand, getColaboradorByUserIdExpandIn, getColaboradorByUsuario } from "../../cliente/service/Colaborador.ts";
+import { getColaboradorByEmail, getColaboradorByEmailExpand, getColaboradorByUserIdExpand, getColaboradorByUserIdExpandIn, getColaboradorByUsuario } from "../../cliente/service/Colaborador.ts";
 import { getEmpresaByColaboradorId, getEmpresaById } from "../../cliente/service/Empresa.ts";
 import {
-    getEquipesColaboradorIsInTotal,
     getEquipesColaboradorIsIn,
     getEquipesByColaboradorIdAndName,
     registerEquipe,
@@ -22,9 +18,11 @@ import {
     removeAllColaboradorFromEquipe,
     deleteEquipeById,
     removeColaboradorFromOneEquipe,
-    updateEquipeMember
+    updateEquipeMember,
+    getUserPrevilege,
+    updateEquipeToColaborador
 } from "../../cliente/service/Equipe.ts";
-import { addConvite, getConviteByEquipe, removeByEquipe, removeByEmail, getConviteByEmail } from "../../cliente/service/Convites.ts";
+import { addConvite, getConviteByEquipe, removeByEquipe, removeByEmail, getAll, getConviteByEmail, getConviteByEmailAndEquipe, removeById } from "../../cliente/service/Convites.ts";
 import { getUsuarioByEmail } from "../../cliente/service/Usuario.ts";
 import { registerUser } from "../../cliente/service/User.ts";
 
@@ -59,7 +57,7 @@ export const getHomeData = async (params, body, user) => {
     });
 }
 
-export const getPageInfo = async (params: any, body: any, user: any, headers: any, query:any) => {
+export const getPageInfo = async (params: any, body: any, user: any, headers: any, query: any) => {
     const { type, page } = params;
 
     const Colaborador = await getColaboradorByUserIdExpand(user.id);
@@ -96,7 +94,7 @@ export const getPageInfo = async (params: any, body: any, user: any, headers: an
             getMetaDadosAll(Colaborador, "Atas", '', query, headers),
         ]);
 
-        respObj = { ...respObj, itens: dados.data}
+        respObj = { ...respObj, itens: dados.data }
     }
 
     if (opt == "processos") {
@@ -104,7 +102,7 @@ export const getPageInfo = async (params: any, body: any, user: any, headers: an
             getMetaDadosAll(Colaborador, "Processos", '', query, headers),
         ]);
 
-        respObj = { ...respObj, itens: dados.data}
+        respObj = { ...respObj, itens: dados.data }
     }
 
     if (opt == "projetos") {
@@ -112,7 +110,7 @@ export const getPageInfo = async (params: any, body: any, user: any, headers: an
             getMetaDadosAll(Colaborador, "Projeto", '', query, headers),
         ]);
 
-        respObj = { ...respObj, itens: dados.data}
+        respObj = { ...respObj, itens: dados.data }
     }
 
     if (opt == "tarefas") {
@@ -120,7 +118,7 @@ export const getPageInfo = async (params: any, body: any, user: any, headers: an
             getMetaDadosAll(Colaborador, "Tarefas", '', query, headers),
         ]);
 
-        respObj = { ...respObj, itens: dados.data}
+        respObj = { ...respObj, itens: dados.data }
     }
 
     return response(respObj);
@@ -141,7 +139,19 @@ export const getEquipe = async (params, body, user, headers, query) => {
 
     const obj = await Promise.all(
         equipes.map(async (equipe) => {
-            const users = await getColaboradorByUserIdExpandIn(equipe.colaboradores);
+            let users = await getColaboradorByUserIdExpandIn(equipe.colaboradores);
+
+            users = await Promise.all(
+                users.map(async (user) => {
+                    const privilegio = await getUserPrevilege(equipe.id, user.id);
+
+                    return {
+                        ...user,
+                        privilegio, // você pode adicionar a info aqui se quiser
+                    };
+                })
+            );
+
             return {
                 id: equipe.id,
                 equipe: equipe.nome,
@@ -192,7 +202,7 @@ export const addTeam = async (params, body, user) => {
     let addEquipe = await registerEquipe(name, Colaborador.id, empresa.id);
     if (!addEquipe) return response(null, true, `Erro ao adicionar equipe!`);
 
-    const colaboradorEquipe = await associateEquipeToColaborador(Colaborador.id, addEquipe[0].id);
+    const colaboradorEquipe = await associateEquipeToColaborador(Colaborador.id, addEquipe[0].id, TEAM_OWNER);
     if (!colaboradorEquipe) return response(null, true, "Erro ao adicionar equipe");
 
     return response(addEquipe);
@@ -207,13 +217,37 @@ export const editEquipe = async (params, body, user) => {
     const Colaborador = await getColaboradorByUserIdExpand(user.id);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
-    let equipes = await getEquipesByColaboradorId(Colaborador.id);
-    const equipeToEdit = equipes.filter(item => item.id == teamId)[0];
-
-    if (!equipeToEdit) return response(null, true, `Você não tem permissão para editar essa equipe`);
+    //logged role
+    let equipeData = await getUserPrevilege(teamId, Colaborador.id);
+    if (!equipeData || equipeData?.privilegio < TEAM_ADM) return response(null, true, `Você não tem permissão para editar essa equipe`);
 
     let edit = await updateEquipe({ nome: name }, teamId);
     if (!edit) return response(null, true, `Erro ao editar equipe`);
+
+    return response(true);
+}
+
+export const changeEquipeRole = async (params, body, user) => {
+    const { equipe, membro, newRole } = params;
+
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    //logged role
+    let equipeData = await getUserPrevilege(equipe, Colaborador.id);
+    if (!equipeData || equipeData?.privilegio < TEAM_ADM) return response(null, true, `Você não tem permissão para editar essa equipe`);
+
+    let equipeMembroData = await getUserPrevilege(equipe, membro);
+    if ((equipeMembroData?.privilegio >= equipeData?.privilegio) || (equipeData?.privilegio == TEAM_ADM && newRole == TEAM_OWNER)) return response(null, true, `Você não tem permissão suficiente para editar este membro`);
+
+    let edit = await updateEquipeToColaborador(membro, equipe, newRole);
+    if (!edit) return response(null, true, `Erro ao editar`);
+
+    // demote current user
+    if (equipeData?.privilegio == 3 && newRole == 3) {
+        await updateEquipeToColaborador(Colaborador.id, equipe, TEAM_ADM);
+        await updateEquipe({ criador_equipe: membro }, equipe);
+    }
 
     return response(true);
 }
@@ -224,16 +258,13 @@ export const delEquipe = async (params, body, user) => {
     const Colaborador = await getColaboradorByUserIdExpand(user.id);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
-    let equipes = await getEquipesByColaboradorId(Colaborador.id);
-    const equipeToDelete = equipes.filter(item => item.id == teamId)[0];
-
-    if (!equipeToDelete) return response(null, true, `Você não tem permissão para deletar essa equipe`);
+    let equipeData = await getUserPrevilege(teamId, Colaborador.id);
+    if (equipeData?.privilegio != TEAM_OWNER) return response(null, true, `Você não tem permissão para excluir essa equipe`);
 
     await updateAllByTeamId({ equipe: null }, teamId);
     await removeAllColaboradorFromEquipe(teamId);
     await removeByEquipe(teamId);
     await deleteEquipeById(teamId);
-
 
     return response(true);
 }
@@ -244,14 +275,17 @@ export const removeUserFromTeam = async (params, body, user) => {
     const Colaborador = await getColaboradorByUserIdExpand(user.id);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
-    let equipes = await getEquipesByColaboradorId(Colaborador.id);
-    const equipeToDelete = equipes.filter(item => item.id == teamId)[0];
+    let equipe = await getEquipesById(teamId);
 
-    if (!equipeToDelete) return response(null, true, `Você não tem permissão para realizar essa ação`);
+    //Logged Role
+    let equipeData = await getUserPrevilege(teamId, Colaborador.id);
+    if (!equipeData || equipeData?.privilegio < TEAM_ADM) return response(null, true, `Você não tem permissão para remover esse membro`);
 
-    if (colId == equipeToDelete.criador_equipe) return response(null, true, `Não é permitido remover dono da equipe`);
+    //Member Role
+    let equipeMembroData = await getUserPrevilege(teamId, colId);
+    if (equipeMembroData?.privilegio == TEAM_OWNER) return response(null, true, `Não é permitido remover dono da equipe`);
 
-    const newTeam = equipeToDelete.colaboradores.filter(item => item != colId);
+    const newTeam = equipe[0].colaboradores.filter(item => item != colId);
     await removeColaboradorFromOneEquipe(colId, teamId);
     await updateEquipe({ colaboradores: newTeam }, teamId);
 
@@ -266,10 +300,12 @@ export const inviteMember = async (params, body, user) => {
     const Colaborador = await getColaboradorByUserIdExpand(user.id);
     if (!Colaborador) return response(null, true, `Colaborador não existe`);
 
+    //Logged Role
+    let equipeData = await getUserPrevilege(equipeId, Colaborador.id);
+    if (!equipeData || equipeData?.privilegio < TEAM_ADM) return response(null, true, `Você não tem permissão para adicionar membros`);
+
     const equipe = await getEquipesById(equipeId);
     if (!equipe) return response(null, true, `Equipe não existe`);
-
-    if (equipe[0].criador_equipe != Colaborador.id) return response(null, true, `Você não tem permissão para realizar essa ação`);
 
     let equipeRealId = equipe[0].id;
     let inviteAdd: { anfitriao: string, email: string, equipe: string }[] = [];
@@ -296,7 +332,11 @@ export const inviteMember = async (params, body, user) => {
 
             await associateEquipeToColaborador(col.id, equipeRealId);
         } else {
-            inviteAdd.push({ anfitriao: Colaborador.id, email: member.email, equipe: equipeRealId });
+            const inviteAlreadyExist = await getConviteByEmailAndEquipe(member.email, equipeRealId);
+
+            if (inviteAlreadyExist.data?.length == 0) {
+                inviteAdd.push({ anfitriao: Colaborador.id, email: member.email, equipe: equipeRealId });
+            }
         }
     }
 
@@ -329,3 +369,34 @@ export const inviteVerify = async (params, body, user) => {
 
     return response({});
 }
+
+export const emailTest = async (params, body, user) => {
+    const { to, subject, msg } = body;
+
+    const resp = await Email.send(to, subject, msg);
+    if (resp.error) return response(resp);
+
+    return response({});
+}
+
+// export const solveInvite = async (params, body, user) => {
+//     const allInvites = await getAll()
+
+//     let isItIn:any = [];
+
+//     await Promise.all(
+//         allInvites.data.map(async (invite) => {
+//             const col = await getColaboradorByEmail(invite.email);
+
+//             if(col){
+//                 const equipe = await getEquipesById(invite.equipe);
+
+//                 if(!equipe[0].colaboradores.includes(col.id)){
+//                     isItIn.push(invite.id)
+//                 }
+//             }
+//         })
+//     );
+
+//     return response(isItIn);
+// }

@@ -14,15 +14,13 @@ export const addUser = async (params, body, user) => {
 }
 
 export const recuperar = async (params, body, user) => {
-    const { email, senha } = body;
+    const { senha } = body;
 
-    const { data, error, msg, code } = await service.recoveryPassword(email, senha);
+    const Colaborador = await getColaboradorByUserIdExpand(user.id);
+    if (!Colaborador) return response(null, true, `Colaborador não existe`);
+
+    const { data, error, msg, code } = await service.recoveryPassword(user.id, senha);
     return response({ data, error, msg, code });
-
-
-    if (error) return response(error, true, msg, code);
-
-    return response(data);
 }
 
 export const addUserProfile = async (params, body, user) => {

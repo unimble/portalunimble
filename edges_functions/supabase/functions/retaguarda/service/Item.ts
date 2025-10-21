@@ -1,10 +1,10 @@
 import { supaCli } from "../../utils/supaClient.ts";
-import { response } from "../../utils/utils.ts";
+import { response, getNanoId } from "../../utils/utils.ts";
 
 export const addItem = async (conteudo) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 
-    const { data, error } = await supaCli.from("Item").insert([conteudo]).select("*");
+    const { data, error } = await supaCli.from("Item").insert([{...conteudo, mnemonico:getNanoId()}]).select("*");
 
     if (error != null) return response(null, true, error.message, error.code);
 
@@ -41,6 +41,14 @@ export const deleteItemById = async (id) => {
     return response({});
 }
 
+export const getAll = async () => {
+    const { data, error } = await supaCli.from("Item").select("*").is('mnemonico', null);
+
+    if (error != null) return false;
+
+    return data;
+}
+
 export const getItensByItemBase = async (id) => {
     if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
 
@@ -62,6 +70,34 @@ export const getItensByItemBase = async (id) => {
         elem,
         item 
     `).eq("item", id);
+
+    if (error != null) return response(null, true, error.message, error.code);
+
+    return data;
+}
+
+export const getItensByUrl = async (url) => {
+    if (!supaCli) return response(null, true, "Conexão com supabase falhou em iniciar");
+
+    const { data, error } = await supaCli.from("Item").select(`
+        id,
+        created_at,
+        criador (
+            usuario (
+                nome,
+                profile
+            )
+        ),
+        equipe (
+            id,
+            nome
+        ),
+        empresa,
+        depende_de,
+        elem,
+        item,
+        mnemonico
+    `).eq("mnemonico", url);
 
     if (error != null) return response(null, true, error.message, error.code);
 
