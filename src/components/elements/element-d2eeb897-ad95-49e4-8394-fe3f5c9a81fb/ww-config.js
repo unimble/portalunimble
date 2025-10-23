@@ -13,6 +13,8 @@ export default {
         "headerFontWeight",
         "headerFontSize",
         "headerFontFamily",
+        "headerHeightMode",
+        "headerHeight",
       ],
       [
         "rowTitle",
@@ -28,6 +30,8 @@ export default {
         "cellFontFamily",
         "cellFontSize",
         "cellSelectionBorderColor",
+        "cellAlignmentMode",
+        "cellAlignment",
       ],
       ["menuTitle", "menuTextColor", "menuBackgroundColor"],
       [
@@ -124,6 +128,47 @@ export default {
         displayIndex: 0,
       },
       getTestEvent: "getRowClickedTestEvent",
+    },
+  ],
+  actions: [
+    { label: "Reset filters", action: "resetFilters" },
+    { label: "Reset sort", action: "resetSort" },
+    {
+      label: "Select all",
+      action: "selectAll",
+      args: [
+        {
+          name: "mode",
+          type: "select",
+          options: [
+              { value: null, label: "Grid behavior", default: true },
+              { value: "all", label: "All rows" },
+              { value: "filtered", label: "Filtered rows" },
+              { value: "currentPage", label: "Current page rows" },
+            ],
+        },
+      ],
+    },
+    { label: "Deselect all", action: "deselectAll" },
+    {
+      label: "Select row",
+      action: "selectRow",
+      args: [
+        {
+          name: "Row id",
+          type: "string",
+        },
+      ],
+    },
+    {
+      label: "Deselect row",
+      action: "deselectRow",
+      args: [
+        {
+          name: "Row id",
+          type: "string",
+        },
+      ],
     },
   ],
   properties: {
@@ -294,6 +339,37 @@ export default {
         type: "string",
         cssSupports: "font-family",
       },
+    },
+    headerHeightMode: {
+      type: "TextSelect",
+      options: {
+        options: [
+          { value: null, label: "Fixed", default: true },
+          { value: "auto", label: "Auto" },
+        ],
+      },
+      label: "Height mode",
+      responsive: true,
+      bindable: true,
+      states: true,
+      classes: true,
+    },
+    headerHeight: {
+      label: { en: "Height" },
+      type: "Length",
+      options: {
+        noRange: true,
+        unitChoices: [
+          { value: "px", label: "px", default: true },
+          { value: "em", label: "em", digits: 3, step: 0.1 },
+          { value: "rem", label: "rem", digits: 3, step: 0.1 },
+        ],
+      },
+      responsive: true,
+      states: true,
+      classes: true,
+      bindable: true,
+      hidden: (content) => content.headerHeightMode === "auto",
     },
     borderColor: {
       type: "Color",
@@ -766,6 +842,43 @@ export default {
       bindable: true,
       defaultValue: [],
     },
+    cellAlignmentMode: {
+      label: "Alignment Mode",
+      type: "TextSelect",
+      options: {
+        options: [
+          { value: "inherit", label: "Same as column", default: true },
+          { value: "custom", label: "Custom" },
+        ],
+      },
+    },
+    cellAlignment: {
+      type: "TextRadioGroup",
+      label: "Alignment",
+      options: {
+        choices: [
+          {
+            value: "left",
+            title: "Left",
+            icon: "align-left",
+            default: true,
+          },
+          { value: "center", title: "Center", icon: "align-center" },
+          { value: "right", title: "Right", icon: "align-right" },
+        ],
+      },
+      responsive: true,
+      states: true,
+      classes: true,
+      bindable: true,
+      section: "style",
+      bindingValidation: {
+        type: "string",
+        enum: ["left", "center", "right"],
+        tooltip: "Cell alignment: left, center, or right",
+      },
+      hidden: (content) => content.cellAlignmentMode !== "custom",
+    },
     idFormula: {
       type: "Formula",
       label: "Unique Row Id",
@@ -803,6 +916,7 @@ export default {
             wwProps,
             array
           ) => ({
+            singleLine: true,
             item: {
               headerName: {
                 label: "Header Name",
@@ -917,6 +1031,58 @@ export default {
                   ],
                 },
               },
+              headerAlignment: {
+                type: "TextRadioGroup",
+                label: "Header Alignment",
+                options: {
+                  choices: [
+                    {
+                      value: "left",
+                      title: "Left",
+                      icon: "align-left",
+                      default: true,
+                    },
+                    { value: "center", title: "Center", icon: "align-center" },
+                    { value: "right", title: "Right", icon: "align-right" },
+                  ],
+                },
+                responsive: true,
+                states: true,
+                classes: true,
+                bindable: true,
+                section: "style",
+                bindingValidation: {
+                  type: "string",
+                  enum: ["left", "center", "right"],
+                  tooltip: "Header alignment: left, center, or right",
+                },
+              },
+              cellAlignment: {
+                type: "TextRadioGroup",
+                label: "Cell Alignment",
+                options: {
+                  choices: [
+                    {
+                      value: "left",
+                      title: "Left",
+                      icon: "align-left",
+                      default: true,
+                    },
+                    { value: "center", title: "Center", icon: "align-center" },
+                    { value: "right", title: "Right", icon: "align-right" },
+                  ],
+                },
+                responsive: true,
+                states: true,
+                classes: true,
+                bindable: true,
+                section: "style",
+                bindingValidation: {
+                  type: "string",
+                  enum: ["left", "center", "right"],
+                  tooltip: "Cell alignment: left, center, or right",
+                },
+              },
               pinned: {
                 label: "Pinned",
                 type: "TextRadioGroup",
@@ -952,7 +1118,7 @@ export default {
                 hidden:
                   array?.item?.cellDataType === "action" ||
                   array?.item?.cellDataType === "image",
-                  bindable: true,
+                bindable: true,
               },
               sortable: {
                 label: "Sortable",
@@ -960,7 +1126,7 @@ export default {
                 hidden:
                   array?.item?.cellDataType === "action" ||
                   array?.item?.cellDataType === "image",
-                  bindable: true,
+                bindable: true,
               },
               actionName: {
                 label: "Action Name",
@@ -1129,12 +1295,12 @@ export default {
       label: { en: "Border Radius" },
       type: "Length",
       options: {
-        noRange: true
+        noRange: true,
       },
       bindable: true,
       responsive: true,
       states: true,
       classes: true,
-    }
+    },
   },
 };

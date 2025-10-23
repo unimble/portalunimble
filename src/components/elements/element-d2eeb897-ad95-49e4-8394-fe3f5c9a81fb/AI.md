@@ -30,6 +30,8 @@ A highly customizable data grid/table component that supports features like sort
 - `headerFontWeight`: `null | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900` - Font weight of header text.
 - `headerFontSize`: `string` - Font size of header text.
 - `headerFontFamily`: `string` - Font family for header text.
+- `headerHeightMode`: `undefined|auto` - Set to auto to have auto height on the header
+- `headerHeight`: `string` - If headerHeightMode is not auto, the header height (default to the 48px of the template)
 - `borderColor`: `string | null` - Color of grid borders.
 - `wrapperBorderRadius`: `string | null` - Border radius of the wrapper
 - `cellColor`: `string | null` - Text color of grid cells.
@@ -111,6 +113,7 @@ A highly customizable data grid/table component that supports features like sort
     actionLabel: string,
     pinned: undefined | 'left' | 'right'
   }>` - Column configurations. Each object describe a column of the grid, and some options may depends on the selected type of data. For each object, width can be undefined, if defined its must be a string in the shape of {value}px. Flex will be ignore if width is defined or equal to auto and must be an integer.`
+
 
 
 ***Events:***

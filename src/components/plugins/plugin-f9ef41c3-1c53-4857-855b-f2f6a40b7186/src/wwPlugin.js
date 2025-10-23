@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { generateFilter } from './helpers/filters';
+import { getCurrentSupabaseSettings, resolveRuntimeProjectUrl } from './helpers/environmentConfig';
 
 import {
     buildQueryString,
@@ -9,6 +10,13 @@ import {
     executeStreamingInvocation,
 } from './helpers/edgeFunction.js';
 
+const maskForLog = value => {
+    if (!value) return null;
+    const str = String(value);
+    if (str.length <= 8) return str;
+    return `${str.slice(0, 4)}...${str.slice(-4)}`;
+};
+
 export default {
     instance: null,
     channels: {},
@@ -16,9 +24,90 @@ export default {
         Plugin API
     \================================================================================================*/
     async _onLoad(settings) {
-        await this.load(settings.publicData.customDomain || settings.publicData.projectUrl, settings.publicData.apiKey);
+        
+        // Get configuration for current environment
+        let config = getCurrentSupabaseSettings('supabase');
+        let runtimeProjectUrl = resolveRuntimeProjectUrl(config);
+
+
+        await this.load(runtimeProjectUrl, config.publicApiKey);
         this.subscribeTables(settings.publicData.realtimeTables || {});
     },
+    
+    async fetchProjectInfo(configOverride = null) {
+        const config = configOverride || getCurrentSupabaseSettings('supabase');
+        const projectUrl = config?.projectUrl;
+        const accessToken = config?.accessToken;
+        if (!accessToken || !projectUrl) return;
+
+        const params = this.getBranchQueryParams(config);
+        const { data: schemaData } = await this.requestAPI({ method: 'GET', path: '/schema', params });
+        const { data: edgeData } = await this.requestAPI({ method: 'GET', path: '/edge', params });
+        this.projectInfo = schemaData?.data;
+        this.projectInfo.edge = edgeData?.data;
+        wwLib.$emit('wwTopBar:supabase:refresh');
+        return this.projectInfo;
+    },
+    getBranchQueryParams(config = getCurrentSupabaseSettings('supabase')) {
+        if (!config) return undefined;
+        const params = {};
+        if (config.branchSlug) params.branch = config.branchSlug;
+        if (config.baseProjectRef) params.baseProjectRef = config.baseProjectRef;
+        return Object.keys(params).length ? params : undefined;
+    },
+    async onSave(settings) {
+        await this.syncSettings(settings);
+        
+        // Get config for current environment
+        const config = getCurrentSupabaseSettings('supabase');
+        if (!config.projectUrl) return;
+        
+        const runtimeProjectUrl = resolveRuntimeProjectUrl(config);
+
+        if (config.accessToken && config.projectUrl) {
+            await this.install();
+            await this.fetchProjectInfo(config);
+        }
+
+        if (wwLib.wwPlugins.supabaseAuth) {
+            // supabaseAuth will call syncInstance
+            const authConfig = getCurrentSupabaseSettings('supabaseAuth');
+            const authRuntimeUrl = resolveRuntimeProjectUrl(authConfig);
+            await wwLib.wwPlugins.supabaseAuth.load(
+                authRuntimeUrl,
+                authConfig.publicApiKey,
+                authConfig.privateApiKey
+            );
+        } else {
+            await this.load(runtimeProjectUrl, config.publicApiKey);
+            this.subscribeTables(settings.publicData.realtimeTables || {});
+        }
+    },
+    async requestAPI({ method, path, data, params }, retry = true) {
+        try {
+            return await wwAxios({
+                method,
+                url: `${wwLib.wwApiRequests._getPluginsUrl()}/designs/${
+                    wwLib.$store.getters['websiteData/getDesignInfo'].id
+                }/supabase${path}`,
+                data,
+                params,
+            });
+        } catch (error) {
+            const isOauthToken = wwLib.wwPlugins.supabase.settings.privateData.accessToken?.startsWith('sbp_oauth');
+            if (retry && [401, 403].includes(error.response?.status) && isOauthToken) {
+                const { data } = await wwAxios.post(
+                    `${wwLib.wwApiRequests._getPluginsUrl()}/designs/${
+                        wwLib.$store.getters['websiteData/getDesignInfo'].id
+                    }/supabase/refresh`
+                );
+                return await this.requestAPI({ method, path, data, params }, false);
+            }
+            wwLib.wwNotification.open({ text: 'Error while requesting the supabase project.', color: 'red' });
+            throw error;
+        }
+    },
+    /* wwEditor:end */
     /*  Called by supabase auth plugin
      *  Allow supabase to use the supabase auth instance when available
      */
@@ -34,6 +123,15 @@ export default {
     async _fetchCollection(collection) {
         if (collection.mode === 'dynamic') {
             try {
+                // Ensure we have an instance for the current environment
+                if (!this.instance) {
+                    const config = getCurrentSupabaseSettings('supabase');
+                    const runtimeProjectUrl = resolveRuntimeProjectUrl(config);
+                    if (runtimeProjectUrl && config.publicApiKey) {
+                        await this.load(runtimeProjectUrl, config.publicApiKey);
+                    }
+                }
+                
                 const fields =
                     collection.config.fieldsMode === 'guided'
                         ? (collection.config.dataFields || []).join(', ')

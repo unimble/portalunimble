@@ -31,7 +31,7 @@
 </template>
 
 <script>
-import { shallowRef, watchEffect, computed } from "vue";
+import { shallowRef, watchEffect, computed, inject } from "vue";
 import { AgGridVue } from "ag-grid-vue3";
 import {
   AllCommunityModule,
@@ -48,8 +48,6 @@ import {
 import ActionCellRenderer from "./components/ActionCellRenderer.vue";
 import ImageCellRenderer from "./components/ImageCellRenderer.vue";
 import WewebCellRenderer from "./components/WewebCellRenderer.vue";
-
-console.log("AG Grid version:", AG_GRID_LOCALE_FR);
 
 // TODO: maybe register less modules
 // TODO: maybe register modules per grid instead of globally
@@ -202,40 +200,50 @@ export default {
       return {
         editable: false,
         resizable: this.content.resizableColumns,
+        autoHeaderHeight: this.content.headerHeightMode === "auto",
+        wrapHeaderText: this.content.headerHeightMode === "auto",
+        cellClass:
+          this.content.cellAlignmentMode === "custom" ?
+          `-${this.content.cellAlignment ||'left'} ||`
+            : null,
       };
     },
     columnDefs() {
       return this.content.columns.map((col) => {
         const minWidth =
-          !col.minWidth || col.minWidth === "auto"
+          !col?.minWidth || col?.minWidth === "auto"
             ? null
-            : wwLib.wwUtils.getLengthUnit(col.minWidth)?.[0];
+            : wwLib.wwUtils.getLengthUnit(col?.minWidth)?.[0];
         const maxWidth =
-          !col.maxWidth || col.maxWidth === "auto"
+          !col?.maxWidth || col?.maxWidth === "auto"
             ? null
-            : wwLib.wwUtils.getLengthUnit(col.maxWidth)?.[0];
+            : wwLib.wwUtils.getLengthUnit(col?.maxWidth)?.[0];
         const width =
-          !col.width || col.width === "auto" || col.widthAlgo === "flex"
+          !col?.width || col?.width === "auto" || col?.widthAlgo === "flex"
             ? null
-            : wwLib.wwUtils.getLengthUnit(col.width)?.[0];
-        const flex = col.widthAlgo === "flex" ? col.flex ?? 1 : null;
+            : wwLib.wwUtils.getLengthUnit(col?.width)?.[0];
+        const flex = col?.widthAlgo === "flex" ? col?.flex ?? 1 : null;
         const commonProperties = {
           minWidth,
           maxWidth,
-          pinned: col.pinned === "none" ? false : col.pinned,
+          pinned: col?.pinned === "none" ? false : col?.pinned,
           width,
           flex,
-          hide: !!col.hide,
+          hide: !!col?.hide,
+          headerClass: col.headerAlignment ? `-${col.headerAlignment}` : null,
+          ...(this.content.cellAlignmentMode !== "custom"
+            ? { cellClass: col.cellAlignment ? `-${col.cellAlignment}` : null }
+            : {}),
         };
-        switch (col.cellDataType) {
+        switch (col?.cellDataType) {
           case "action": {
             return {
               ...commonProperties,
-              headerName: col.headerName,
+              headerName: col?.headerName,
               cellRenderer: "ActionCellRenderer",
               cellRendererParams: {
-                name: col.actionName,
-                label: col.actionLabel,
+                name: col?.actionName,
+                label: col?.actionLabel,
                 trigger: this.onActionTrigger,
                 withFont: !!this.content.actionFont,
               },
@@ -246,40 +254,40 @@ export default {
           case "custom":
             return {
               ...commonProperties,
-              headerName: col.headerName,
-              field: col.field,
+              headerName: col?.headerName,
+              field: col?.field,
               cellRenderer: "WewebCellRenderer",
               cellRendererParams: {
-                containerId: col.containerId,
+                containerId: col?.containerId,
               },
-              sortable: col.sortable,
-              filter: col.filter,
+              sortable: col?.sortable,
+              filter: col?.filter,
             };
           case "image": {
             return {
               ...commonProperties,
-              headerName: col.headerName,
-              field: col.field,
+              headerName: col?.headerName,
+              field: col?.field,
               cellRenderer: "ImageCellRenderer",
               cellRendererParams: {
-                width: col.imageWidth,
-                height: col.imageHeight,
+                width: col?.imageWidth,
+                height: col?.imageHeight,
               },
             };
           }
           default: {
             const result = {
               ...commonProperties,
-              headerName: col.headerName,
-              field: col.field,
-              sortable: col.sortable,
-              filter: col.filter,
-              editable: col.editable,
+              headerName: col?.headerName,
+              field: col?.field,
+              sortable: col?.sortable,
+              filter: col?.filter,
+              editable: col?.editable,
             };
-            if (col.useCustomLabel) {
+            if (col?.useCustomLabel) {
               result.valueFormatter = (params) => {
                 return this.resolveMappingFormula(
-                  col.displayLabelFormula,
+                  col?.displayLabelFormula,
                   params.value
                 );
               };
@@ -345,6 +353,7 @@ export default {
         headerFontSize: this.content.headerFontSize,
         headerFontFamily: this.content.headerFontFamily,
         headerFontWeight: this.content.headerFontWeight,
+        headerHeight: this.content.headerHeightMode !== 'auto' ? this.content.headerHeight : undefined,
         borderColor: this.content.borderColor,
         cellTextColor: this.content.cellColor,
         cellFontFamily: this.content.cellFontFamily,
@@ -404,6 +413,43 @@ export default {
         },
       });
     },
+    resetFilters() {
+      if (!this.gridApi) return;
+      this.gridApi.setFilterModel(null);
+    },
+    resetSort() {
+      if (!this.gridApi) return;
+      this.gridApi.applyColumnState({
+        state: [],
+        defaultState: { sort: null },
+      });
+    },
+    deselectAll() {
+      if (!this.gridApi) return;
+      this.gridApi.deselectAll();
+    },
+    selectAll(mode) {
+      if (!this.gridApi) return;
+      if (this.content.rowSelection !== "multiple") {
+        wwLib.logStore.warning('Select all will have no effect, as row selection is not set to multiple');
+        return;
+      }
+      this.gridApi.selectAll(mode || this.content.selectAll || "all");
+    },
+    selectRow(rowId) {
+      if (!this.gridApi) return;
+      const rowNode = this.gridApi.getRowNode(rowId);
+      if (rowNode) {
+        rowNode.setSelected(true);
+      }
+    },
+    deselectRow(rowId) {
+      if (!this.gridApi) return;
+      const rowNode = this.gridApi.getRowNode(rowId);
+      if (rowNode) {
+        rowNode.setSelected(false);
+      }
+    },
   },
 };
 </script>
@@ -411,8 +457,46 @@ export default {
 <style scoped lang="scss">
 .ww-datagrid {
   position: relative;
-  :deep(.ag-cell-wrapper), :deep(.ag-cell-value) {
+  :deep(.ag-cell-wrapper),
+  :deep(.ag-cell-value) {
     height: 100%;
+  }
+  :deep(.ag-header-cell) {
+    &.-center .ag-header-cell-label {
+      justify-content: center;
+    }
+    &.-right {
+      .ag-header-cell-label {
+        justify-content: flex-end;
+      }
+      .ag-header-cell-filter-button {
+        margin-left: 4px;
+      }
+    }
+    &.-left .ag-header-cell-label {
+      justify-content: flex-start;
+    }
+  }
+  :deep(.ag-cell) {
+    .ag-cell-value {
+      display: flex;
+    }
+
+    &.-right {
+      .ag-cell-value {
+        justify-content: flex-end;
+      }
+    }
+    &.-center {
+      .ag-cell-value {
+        justify-content: center;
+      }
+    }
+    &.-left {
+      .ag-cell-value {
+        justify-content: flex-start;
+      }
+    }
   }
 }
 </style>
